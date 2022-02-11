@@ -1,0 +1,1 @@
+Remeber to exclude the videos folder from being pushed to the github
