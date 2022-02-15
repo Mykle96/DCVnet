@@ -1,0 +1,8 @@
+#Ignore raw-data folder, containing .jpg images from framer.py
+raw-data/
+
+#Ignore videos folder
+videos/
+
+#Ignore all .mp4 files 
+*.mp4
