@@ -1,3 +1,4 @@
+# packages
 import torch
 import numpy as np
 import tqdm
@@ -7,10 +8,15 @@ import sys
 import pandas
 import cython
 import warnings
+import time
+
+# internal imports
 from vectorField import VectorField
 from dataLoader import DataLoader
 from network import UNET
 from vectorField import VectorField
+from DCVnet.visuals.visualization import *
+
 
 # engine function for training (and validation), evaluation
 
@@ -28,7 +34,7 @@ class Model:
         if model == DEFAULT:
             self._model = UNET()
 
-    def train(self, dataset=None, val_dataset=None, epochs=100, learning_rate=0.005, optimizer, loss_fn, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=None):
+    def train(self, dataset, val_dataset=None, epochs=100, learning_rate=0.005, optimizer, loss_fn, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=None):
 
         # Check if the dataset is converted or not, if not initiate, also check for any validation sets.
         assert dataset is not None, "No dataset was received, make sure to input a dataset"
@@ -44,7 +50,6 @@ class Model:
             val_loss = []
 
         # Select optimizer and tune parameters
-        # TODO Add the parameters that are required in the optimizer
         assert type(
             self.optimizer) == "", f"Error catched for the optimizer parameter! Expected the input to be of type string, but got {type(optimizer)}."
         # Get parameters that have grad turned on (i.e. parameters that should be trained)
@@ -76,14 +81,17 @@ class Model:
             if verbose:
                 print('Starting iteration over training dataset')
 
+            iterable = tqdm(dataset, position=0,
+                            leave=True) if verbose else dataset
+
             # Iterate over the dataset
-            for batch_idx, (data, targets) in dataset:
+            for batch_idx, (data, targets) in enumarate(iterable):
                 data = data.to(device=DEVICE)
                 targets = targets.float().unsqueeze(1).to(device=DEVICE)
                 # generate pose data (VectorField)
                 if pose_estimation:
                     vectorfield = VectorField.calculate_vector_field(
-                        targets, data)
+                        targets, data, keypoints)
                 # forward
                 with torch.cuda.amp.autocast():
                     predictions = model(data)

@@ -1,6 +1,7 @@
 import torch
 import math as m
 import numpy as np
+import matplotlib as plt
 import cython
 
 DEFAULT_CLASS = "container"
@@ -9,16 +10,10 @@ DEFAULT_CLASS = "container"
 class VectorField:
 
     def __init__(self, target, image, keypoints, classnames=DEFAULT_CLASS):
-
-        # Takes in a croped image of the container in focus. Which is found by the mask generated from the segmentation network
-        # Creates a vector field for each keypoint (should be 9 keypoints in total for each container)
-        # The vector-field is composed of unit direction vectors pointing from a pixel to a certain keypoint.
         """
-        Args:
-            target:
-            cropedImage:
-            classnames:
-            keypoints: List of keypoints for the respective image and mask, format: [[x,y],[x2,y2],...,[x9,y9]]
+        Class for generating a vector field of unit direction vectors from an arbitrary pixel to a respectiv keypoint
+        located on a given object. Creates a vector field for each keypoint.
+
         """
         self.target = target
         self.image = image
@@ -37,14 +32,20 @@ class VectorField:
         else:
             print(f" {numKeypoints} keypoints registrered, for the image")
 
-        dimentions = [image.shape[0],
-                      image.shape[1]]  # [height, width]
-
     def calculate_vector_field(self, target, image, keypoints):
         """
         Function for calculating the unit direction vector field given the mask and image.
-        This serves as the ground truth for the network to
+        This serves as the ground truth for the network durning keypoint localization training.
+
+        args:
+            target: the ground truth mask (note, only one mask can be served)
+            image: the corresponding image of the mask
+            keypoints: list of keypoints of the object in the image
+
+        return:
+            returns a tuple containg the image and the corresponding unit vector field in the same dimentions as the image
         """
+
         # generate local variables
         images = []
         vectorField = []
@@ -69,6 +70,19 @@ class VectorField:
         # Calculates the unit vector between a given pixel in the mask and the respective keypoint
         # Pixel in the form [x,y]
         # Keypoint in the form [x,y]
+        """
+        Function for calculating the unit direction vector between a given pixel and the respective keypoint. The function 
+        updates a list of vectors with each calculated unit vector.
+
+        args:
+            vectors: array of unit vectors to be updated
+            pixel: the current pixel [x,y]
+            keypoints: the current keypoint
+            imgDimentions: the diemntions of the input image
+
+        returns:
+            No return
+        """
 
         for keypoint in keypoints:
             # TODO Double check this loop, dont think it is quite right
@@ -78,3 +92,7 @@ class VectorField:
             magnitude = m.sqrt(yDiff**2 + xDiff ** 2)
             vectors[pixel[0]][pixel[1]][keypoint*2+1] = yDiff/magnitude
             vectors[pixel[0]][pixel[1]][keypoint*2] = xDiff/magnitude
+
+    def visualize_vectorfield(self, field):
+        # Takes in a np_array of the found unit vector field and displays it
+        raise NotImplementedError()
