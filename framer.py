@@ -7,6 +7,8 @@ import tqdm
 import sys
 import os
 
+from PIL import Image
+
 
 # This script extracts frames from videos and stores them as images.
 # The amount frames extraceted varies with the frame rate of the video.
@@ -79,7 +81,8 @@ def folder_generator(newDirectory):
     return outputPath
 
 
-#frame_maker("Loading and unloading of cargo in the port of Savannah, GA..mp4", "videodata",2)
+#frame_maker("Loading and unloading of cargo in the port of Savannah, GA..mp4", "videodata1",2)
 #frame_maker("Container ship being loaded_unloaded time-lapse.mp4", "videodata2",0.2)
-#frame_maker("Master.mp4", "videodata",1)
-frame_maker("SUMMARY - Stinis Split-Headblock.mp4", "videodata",1)
+#frame_maker("Master.mp4", "videodata3",1)
+#frame_maker("SUMMARY - Stinis Split-Headblock.mp4", "videodata4",1)
+
