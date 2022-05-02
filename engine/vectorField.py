@@ -8,20 +8,20 @@ DEFAULT_CLASS = "container"
 
 class VectorField:
 
-    def __init__(self, cropedPredMask, cropedImage, classnames=DEFAULT_CLASS, keypoints=None):
+    def __init__(self, target, image, keypoints, classnames=DEFAULT_CLASS):
 
         # Takes in a croped image of the container in focus. Which is found by the mask generated from the segmentation network
         # Creates a vector field for each keypoint (should be 9 keypoints in total for each container)
         # The vector-field is composed of unit direction vectors pointing from a pixel to a certain keypoint.
         """
         Args:
-            cropedMask:
+            target:
             cropedImage:
             classnames:
             keypoints: List of keypoints for the respective image and mask, format: [[x,y],[x2,y2],...,[x9,y9]]
         """
-        self.cropedPredMask = cropedPredMask
-        self.cropedImage = cropedImage
+        self.target = target
+        self.image = image
         self.classnames = classnames
         self.keypoints = keypoints
         numKeypoints = len(keypoints)
@@ -37,35 +37,33 @@ class VectorField:
         else:
             print(f" {numKeypoints} keypoints registrered, for the image")
 
-        dimentions = [cropedImage.shape[0],
-                      cropedImage.shape[1]]  # [height, width]
+        dimentions = [image.shape[0],
+                      image.shape[1]]  # [height, width]
 
-        self.calculate_vector_field(
-            cropedPredMask, cropedImage, keypoints, dimentions)
-
-    def calculate_vector_field(self, cropedPredMask, cropedImage, keypoints, imgDimentions):
+    def calculate_vector_field(self, target, image, keypoints):
         """
         Function for calculating the unit direction vector field given the mask and image.
         This serves as the ground truth for the network to
         """
         # generate local variables
-        image = []
+        images = []
         vectorField = []
-
+        dimentions = [image.shape[0],
+                      image.shape[1]]  # [height, width]
         # Run through the croped image, where the mask is located (use only pixels located on the estimated mask)
 
         # generate a list for holding the vectors
-        unitVectors = np.zeros((imgDimentions[0], imgDimentions[1], 18))
+        unitVectors = np.zeros((dimentions[0], dimentions[1], 18))
         # Get the mask coordinates from the croped mask image
-        predMask = np.where(cropedPredMask == 255)[:2]
+        predMask = np.where(target == 255)[:2]
         # for each pixel in the mask, calculate the unit direction vector towards a keypoint
         for coordinates in zip(predMask[0][::3], predMask[1][::3]):
             self.find_unit_vector(unitVectors, coordinates,
-                                  keypoints, imgDimentions)
-        image.append(cropedImage)
+                                  keypoints, dimentions)
+        images.append(image)
         vectorField.append(unitVectors)
         # return a list of the image and the corresponding vector field
-        return (np.array(image), np.array(vectorField))
+        return (np.array(images), np.array(vectorField))
 
     def find_unit_vector(self, vectors, pixel, keypoints, imgDimentions):
         # Calculates the unit vector between a given pixel in the mask and the respective keypoint

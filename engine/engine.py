@@ -20,7 +20,7 @@ class Model:
     # Networks
     DEFAULT = 'UNET'
 
-    def __init__(self, model=DEFAULT, classes=None, segmentation=True, pose_estimation=True, pretrained=False, verbose=True):
+    def __init__(self, model=DEFAULT, classes=None, segmentation=True, pose_estimation=False, pretrained=False, verbose=True):
         # initialize the model class
         # If verbose is selected give more feedback of the process
         self.model = model
@@ -28,7 +28,7 @@ class Model:
         if model == DEFAULT:
             self._model = UNET()
 
-    def train(self, dataset, val_dataset=None, epochs, learning_rate=0.005, optimizer, loss_fn, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=None):
+    def train(self, dataset=None, val_dataset=None, epochs=100, learning_rate=0.005, optimizer, loss_fn, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=None):
 
         # Check if the dataset is converted or not, if not initiate, also check for any validation sets.
         assert dataset is not None, "No dataset was received, make sure to input a dataset"
@@ -82,7 +82,8 @@ class Model:
                 targets = targets.float().unsqueeze(1).to(device=DEVICE)
                 # generate pose data (VectorField)
                 if pose_estimation:
-                    vectorfield = VectorField(targets, data)
+                    vectorfield = VectorField.calculate_vector_field(
+                        targets, data)
                 # forward
                 with torch.cuda.amp.autocast():
                     predictions = model(data)
