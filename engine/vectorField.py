@@ -46,6 +46,16 @@ class VectorField:
             returns a tuple containg the image and the corresponding unit vector field in the same dimentions as the image
         """
 
+        if type(keypoints) == list():
+            pass
+
+        elif type(keypoints) == dict():
+            keypoints = list(keypoints.values())
+
+        else:
+            raise ValueError(
+                f"Excpected type list or dict, but got {type(keypoints)}. calculate_vector_field function can only handle lists or dicts of keypoints.")
+
         # generate local variables
         images = []
         vectorField = []
@@ -56,9 +66,9 @@ class VectorField:
         # generate a list for holding the vectors
         unitVectors = np.zeros((dimentions[0], dimentions[1], 18))
         # Get the mask coordinates from the croped mask image
-        predMask = np.where(target == 255)[:2]
+        mask = np.where(target == 255)[:2]
         # for each pixel in the mask, calculate the unit direction vector towards a keypoint
-        for coordinates in zip(predMask[0][::3], predMask[1][::3]):
+        for coordinates in zip(mask[0][::3], mask[1][::3]):
             self.find_unit_vector(unitVectors, coordinates,
                                   keypoints, dimentions)
         images.append(image)
@@ -67,9 +77,6 @@ class VectorField:
         return (np.array(images), np.array(vectorField))
 
     def find_unit_vector(self, vectors, pixel, keypoints, imgDimentions):
-        # Calculates the unit vector between a given pixel in the mask and the respective keypoint
-        # Pixel in the form [x,y]
-        # Keypoint in the form [x,y]
         """
         Function for calculating the unit direction vector between a given pixel and the respective keypoint. The function 
         updates a list of vectors with each calculated unit vector.
