@@ -76,12 +76,12 @@ class ShippingDataset(torch.utils.data.Dataset):
     def __getitem__(self, index):
         # Needs to return a list with the image, mask and keypoints (if pose is true)
         if self.pose:
-            image = self.Dir[index][2]
+            image = self.Dir[index][0]
             mask = self.Dir[index][1]
-            keypoints = self.Dir[index][0]
+            keypoints = self.Dir[index][2]
         else:
-            image = self.Dir[index][1]
-            mask = self.Dir[index][0]
+            image = self.Dir[index][0]
+            mask = self.Dir[index][1]
         #mask[mask != 0] = 255
         # plt.imshow(mask)
         # plt.show()
@@ -153,6 +153,7 @@ class ShippingDataset(torch.utils.data.Dataset):
             numImages = len(images)
             numLabels = len(labels)
             assert numImages == numLabels, f"The number of label files does not match the number of images! Images: {numImages}, label files: {numLabels}"
+
             return [[a, b, c] for a, b, c in zip(images, masks, labels)]
         else:
             # If not pose, remove all the txt files
