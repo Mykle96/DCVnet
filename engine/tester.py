@@ -17,6 +17,7 @@ TRAIN_MASK_DIR = '../data/dummy-data/train-mask'
 VAL_IMG_DIR = '../data/dummy-data/validation'
 VAL_MASK_DIR = '../data/dummy-data/valid-mask'
 TEST_DIR = '../data/dummy-data/test'
+TRAIN_DIR = '../data/dataset'
 # DEVICE = systemConfig.systems_configurations()  # Sets the device to cpu or available gpu(s)
 
 # Test load of dataset
@@ -40,9 +41,9 @@ loaded_validation_data = DataLoader(
 
 """
 classes = ["container"]
-test = ShippingDataset(TEST_DIR)
+test = ShippingDataset(TRAIN_DIR)
 
-loaded_test = DataLoader(test, batch_size=2, shuffle=False)
+loaded_test = DataLoader(test, batch_size=32, shuffle=True)
 
 # print(loaded_test)
 # print(type(loaded_test))

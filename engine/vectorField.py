@@ -75,7 +75,7 @@ class VectorField:
         images.append(image)
         vectorField.append(unitVectors)
         # return a tuple of the image and the corresponding vector field
-
+        print(unitVectors.shape)
         return (np.array(images), np.array(vectorField))
 
     def find_unit_vector(self, vectors, pixel, keypoints, imgDimentions):
@@ -109,8 +109,8 @@ class VectorField:
 
 def test():
     # Test of vector field
-    imagePath = "../data/dummy-data/train/1_img.png"
-    maskPath = "../data/dummy-data/train-mask/1_id.png"
+    imagePath = "../data/dummy-data/test/1_img.png"
+    maskPath = "../data/dummy-data/test/1_id.png"
     keypoints = [[459, 240], [358, 207], [184, 455], [309, 509], [
         309, 576], [198, 525], [447, 313], [354, 289], [331, 369]]
     image = plt.imread(imagePath)

@@ -12,11 +12,11 @@ import time
 
 # internal imports
 from vectorField import VectorField
-#from dataLoader import DataLoader
+# from dataLoader import DataLoader
 from torch.utils.data import DataLoader
 from model.network import UNET
 from vectorField import VectorField
-#from DCVnet.visuals.visualization import *
+# from DCVnet.visuals.visualization import *
 
 
 # engine function for training (and validation), evaluation
@@ -29,6 +29,8 @@ class Model:
     MASKRCNN = ''
     ADAM = 'Adam'
     SDG = 'SGD'
+    LOSS = ""
+    SCALER = torch.cuda.amp.GradScaler()
 
     def __init__(self, model=DEFAULT, classes=None, segmentation=True, pose_estimation=False, device=None, pretrained=False, verbose=True):
         # initialize the model class
@@ -43,8 +45,8 @@ class Model:
         if model == self.DEFAULT:
             self._model = UNET()
 
-    def train(self, dataset, val_dataset=None, epochs=100, learning_rate=0.005, optimizer=SDG, loss_fn=None, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=None):
-
+    def train(self, dataset, val_dataset=None, epochs=100, learning_rate=0.005, optimizer=SDG, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=SCALER):
+        loss_fn = torch.nn.BCEWithLogitsLoss()
         # Check if the dataset is converted or not, if not initiate, also check for any validation sets.
         assert dataset is not None, "No dataset was received, make sure to input a dataset"
         if not isinstance(dataset, DataLoader):
@@ -99,8 +101,14 @@ class Model:
 
             # Iterate over the dataset
             for batch_idx, (data, targets) in enumerate(iterable):
-                data = data.to(device=DEVICE)
+                print("ESPEN")
+                # print("DATA: ", data.shape)
+                # print("MASK: ", targets.shape)
+
+                data = data.float().permute(0, 3, 1, 2).to(device=DEVICE)
                 targets = targets.float().unsqueeze(1).to(device=DEVICE)
+                print("DATA: ", data.shape)
+                print("MASK: ", targets.shape)
                 # generate pose data (VectorField)
                 if self.pose_estimation:
                     keypoints = []  # temporary placeholder
