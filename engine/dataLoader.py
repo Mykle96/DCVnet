@@ -1,10 +1,11 @@
 import torch
 import numpy as np
 import math
-import tqdm
+import json
 import os
 from PIL import Image
 from tqdm import tqdm
+
 """
 class DataLoader(torch.utils.data.DataLoader):
     def __init__(self, dataset, **kwargs):
@@ -17,7 +18,7 @@ class DataLoader(torch.utils.data.DataLoader):
     def collate_data(batch):
         images, targets = zip(*batch)
         return list(images), list(targets)
-
+"""
 
 class ShippingDataset(torch.utils.data.Dataset):
     def __init__(self, Dir, pose=False, transform=None):
@@ -34,8 +35,10 @@ class ShippingDataset(torch.utils.data.Dataset):
             txtFiles = len([f for f in os.listdir(Dir) if f.endswith('txt')])
             assert txtFiles == minFileThresh, f"There apears to be too few meta files in the the directory! Found {txtFiles}, but need {minFileThresh}"
             num_elements = 3
+            pose_index = 0
             imageIndex = 2
             maskIndex = 1
+
         else:
             # if not pose, remove all excess txt files
             sortedDir = [f for f in os.listdir(Dir) if f.endswith('png')]
@@ -50,6 +53,11 @@ class ShippingDataset(torch.utils.data.Dataset):
                 self.basePath+"/"+data[index][imageIndex]).convert("RGB"))
             data[index][maskIndex] = np.array(Image.open(
                 self.basePath+"/"+data[index][maskIndex]).convert("L"), dtype=np.float32)
+            if pose:
+                poseDict = self.getPoseData(self.basePath+"/"+data[index][pose_index])
+                labelsArray = self.getLabelsArray(poseDict["screenCornerCoordinates"])
+                data[index][pose_index] = labelsArray
+        #Data format is [[pose_index, maskIndex, imageIndex]]
         self.Dir = data
         # print(len(self.Dir))
         # print(type(self.Dir))
@@ -74,6 +82,34 @@ class ShippingDataset(torch.utils.data.Dataset):
             raise NotImplementedError(
                 "Transformations are not handled yet! set to None")
         return image, mask
+
+
+    def formatStringToDict(self, string):
+        newString = ""
+        stringList = string.split(",")
+        for i in range(len(stringList)):
+            if i%2==0:
+                newString += stringList[i]+"."
+            else:
+                newString += stringList[i]+","
+        newString = newString[:-1]
+        return json.loads(newString)
+
+    def getPoseData(self, path):
+        with open(path, encoding="utf-8") as f:
+            #Labels er her all data som hentes fra .txt filen 
+            labels = json.loads(f.readline())
+        keyList = ["worldCornerCoordinates", "screenCornerCoordinates"]
+        for key in keyList:
+            labels[key] = self.formatStringToDict(labels[key])
+        return labels
+
+    def getLabelsArray(self, dict):
+        tmpCord = np.zeros((len(dict.keys()), 2))
+        valuesList = list(dict.values())
+        for i in range(len(valuesList)):
+            tmpCord[i] = np.array([valuesList[i]["x"], valuesList[i]['y']])
+        return tmpCord
 
 
 class SegmentationDataset(torch.utils.data.Dataset):
