@@ -6,7 +6,8 @@ from tqdm import tqdm
 import time
 
 
-def systems_configurations(configurations):
+def systems_configurations():
+    configurations = [check_for_cuda]
     print("Running systems configurations, stand by: ")
     for functions in tqdm(configurations):
         functions()
@@ -63,8 +64,3 @@ def setting_device(cuda=False, cpu=False):
         torch.device('cpu')
         print("Device set to CPU")
     return
-
-
-configurations = [check_for_cuda]
-
-# systems_configurations(configurations)

@@ -5,9 +5,9 @@ import math
 import sys
 import os
 import torchvision
-from dataLoader import ShippingDataset
+#from dataLoader import ShippingDataset
 from torch.utils.data import DataLoader
-
+import matplotlib.pyplot as plt
 
 """
 Utility file containing a lot of functions used across the system
@@ -56,6 +56,7 @@ def intersection_over_union(prediction, target, classes, threshold=0.5, **kwargs
                 print("Iou score was below the predetermined threshold of {}, and was thus purged from the set".format(
                     threshold))
             else:
+                print(f"Dice Score: {iou}")
                 ious.append(iou)
 
     return np.array(ious)
@@ -202,3 +203,19 @@ def get_loaders(
     )
 
     return train_loader, val_loader
+
+
+def test():
+    imagePath = "../data/dummy-data/valid-mask/4_id copy.png"
+    maskPath = "../data/dummy-data/valid-mask/4_id.png"
+    image = plt.imread(imagePath)
+    mask = plt.imread(maskPath)
+    plt.imshow(image)
+    # plt.show()
+    plt.imshow(mask)
+    # plt.show()
+    intersection_over_union(image, mask, 1)
+
+
+if __name__ == "__main__":
+    test()

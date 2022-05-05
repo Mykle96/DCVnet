@@ -1,7 +1,7 @@
 import torch
 import math as m
 import numpy as np
-import matplotlib as plt
+import matplotlib.pyplot as plt
 import cython
 
 DEFAULT_CLASS = "container"
@@ -15,6 +15,7 @@ class VectorField:
         located on a given object. Creates a vector field for each keypoint.
 
         """
+        # TODO: Does this class really need to be inizialized with the target, image and keypoints?
         self.target = target
         self.image = image
         self.classnames = classnames
@@ -23,10 +24,10 @@ class VectorField:
 
         assert keypoints is not None, f"A list of keypoints are need for generating a vector field! Please ensure the dataset contains keypoints or disable pose estimation."
 
-        if numKeypoints < 8 & classnames:
+        if numKeypoints < 8:
             print(
                 f"!!! An insufficent amount of keypoints,({numKeypoints}), detected for class {DEFAULT_CLASS}, this may have an impact on the final loss of the model if the number is not intentional.")
-        elif numKeypoints > 10 & classnames:
+        elif numKeypoints > 10:
             print(
                 f"!!! An abundance of keypoints,({numKeypoints}), detected for class {DEFAULT_CLASS}, if not intentional this may cause obscurity in the final pose estimation.")
         else:
@@ -46,10 +47,10 @@ class VectorField:
             returns a tuple containg the image and the corresponding unit vector field in the same dimentions as the image
         """
 
-        if type(keypoints) == list():
+        if type(keypoints) == list:
             pass
 
-        elif type(keypoints) == dict():
+        elif type(keypoints) == dict:
             keypoints = list(keypoints.values())
 
         else:
@@ -61,11 +62,11 @@ class VectorField:
         vectorField = []
         dimentions = [image.shape[0],
                       image.shape[1]]  # [height, width]
-        # Run through the croped image, where the mask is located (use only pixels located on the estimated mask)
+        # generate a array for holding the vectors
 
-        # generate a list for holding the vectors
-        unitVectors = np.zeros((dimentions[0], dimentions[1], 18))
-        # Get the mask coordinates from the croped mask image
+        unitVectors = np.zeros(
+            (dimentions[0], dimentions[1], len(keypoints)*2))
+        # Get the mask coordinates from the mask image
         mask = np.where(target == 255)[:2]
         # for each pixel in the mask, calculate the unit direction vector towards a keypoint
         for coordinates in zip(mask[0][::3], mask[1][::3]):
@@ -73,7 +74,8 @@ class VectorField:
                                   keypoints, dimentions)
         images.append(image)
         vectorField.append(unitVectors)
-        # return a list of the image and the corresponding vector field
+        # return a tuple of the image and the corresponding vector field
+
         return (np.array(images), np.array(vectorField))
 
     def find_unit_vector(self, vectors, pixel, keypoints, imgDimentions):
@@ -100,6 +102,30 @@ class VectorField:
             vectors[pixel[0]][pixel[1]][keypoint*2+1] = yDiff/magnitude
             vectors[pixel[0]][pixel[1]][keypoint*2] = xDiff/magnitude
 
-    def visualize_vectorfield(self, field):
+    def visualize_gt_vectorfield(self, field):
         # Takes in a np_array of the found unit vector field and displays it
         raise NotImplementedError()
+
+
+def test():
+    # Test of vector field
+    imagePath = "../data/dummy-data/train/1_img.png"
+    maskPath = "../data/dummy-data/train-mask/1_id.png"
+    keypoints = [[459, 240], [358, 207], [184, 455], [309, 509], [
+        309, 576], [198, 525], [447, 313], [354, 289], [331, 369]]
+    image = plt.imread(imagePath)
+    mask = plt.imread(maskPath)
+    indices = np.where(mask == 255)
+    print(indices)
+    print(mask)
+    plt.imshow(image)
+    # plt.show()
+    plt.imshow(mask)
+    # plt.show()
+    field = VectorField(image, mask, keypoints)
+    vectorfield = field.calculate_vector_field(image, mask, keypoints)
+    print(vectorfield)
+
+
+if __name__ == "__main__":
+    test()
