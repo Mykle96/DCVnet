@@ -5,7 +5,8 @@ import tqdm
 import os
 from PIL import Image
 from tqdm import tqdm
-"""
+
+
 class DataLoader(torch.utils.data.DataLoader):
     def __init__(self, dataset, **kwargs):
 
@@ -17,7 +18,6 @@ class DataLoader(torch.utils.data.DataLoader):
     def collate_data(batch):
         images, targets = zip(*batch)
         return list(images), list(targets)
-"""
 
 
 class ShippingDataset(torch.utils.data.Dataset):
@@ -52,9 +52,6 @@ class ShippingDataset(torch.utils.data.Dataset):
             data[index][maskIndex] = np.array(Image.open(
                 self.basePath+"/"+data[index][maskIndex]).convert("L"), dtype=np.float32)
         self.Dir = data
-        # print(len(self.Dir))
-        # print(type(self.Dir))
-        # print(data)
         return
 
     def __len__(self):
@@ -69,7 +66,8 @@ class ShippingDataset(torch.utils.data.Dataset):
             image = self.Dir[index][1]
             mask = self.Dir[index][0]
 
-        print(mask.shape)
+        print("Mask shape: ", mask.shape)
+        print("Image shape: ", image.shape)
         # Need to have default transformations if transformations are set to NONE
         if self.transform is not None:
             raise NotImplementedError(

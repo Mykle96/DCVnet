@@ -12,10 +12,11 @@ import time
 
 # internal imports
 from vectorField import VectorField
-from dataLoader import DataLoader
-from network import UNET
+#from dataLoader import DataLoader
+from torch.utils.data import DataLoader
+from model.network import UNET
 from vectorField import VectorField
-from DCVnet.visuals.visualization import *
+#from DCVnet.visuals.visualization import *
 
 
 # engine function for training (and validation), evaluation
@@ -26,18 +27,23 @@ class Model:
     # Networks
     DEFAULT = 'UNET'
     MASKRCNN = ''
+    ADAM = 'Adam'
+    SDG = 'SGD'
 
-    def __init__(self, model=DEFAULT, classes=None, segmentation=True, pose_estimation=False, pretrained=False, verbose=True):
+    def __init__(self, model=DEFAULT, classes=None, segmentation=True, pose_estimation=False, device=None, pretrained=False, verbose=True):
         # initialize the model class
         # If verbose is selected give more feedback of the process
         self.model = model
+        self.model_name = model
         self.pose_estimation = pose_estimation
         self.verbose = verbose
+        self._device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu")
 
         if model == self.DEFAULT:
             self._model = UNET()
 
-    def train(self, dataset, val_dataset=None, epochs=100, learning_rate=0.005, optimizer=None, loss_fn=None, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=None):
+    def train(self, dataset, val_dataset=None, epochs=100, learning_rate=0.005, optimizer=SDG, loss_fn=None, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=None):
 
         # Check if the dataset is converted or not, if not initiate, also check for any validation sets.
         assert dataset is not None, "No dataset was received, make sure to input a dataset"
@@ -47,7 +53,8 @@ class Model:
         if val_dataset is not None and not isinstance(val_dataset, DataLoader):
             val_dataset = DataLoader(val_dataset, shuffle=False)
 
-        DEVICE = systems_configurations()
+        DEVICE = self._device
+
         # initate training parameters and variables
         train_loss = []
         if val_dataset is not None:
@@ -55,25 +62,27 @@ class Model:
 
         # Select optimizer and tune parameters
         assert type(
-            optimizer) == "", f"Error catched for the optimizer parameter! Expected the input to be of type string, but got {type(optimizer)}."
+            optimizer) == str, f"Error catched for the optimizer parameter! Expected the input to be of type string, but got {type(optimizer)}."
         # Get parameters that have grad turned on (i.e. parameters that should be trained)
         parameters = [p for p in self._model.parameters() if p.requires_grad]
 
         if optimizer in ["adam", "Adam"]:
+            print("Optimizer: Adam")
             optimizer = torch.optim.Adam(
                 parameters, lr=learning_rate, momentum=momentum, weight_decay=weight_decay)
-        elif optimizer in ["sdg", "SDG"]:
-            optimizer = torch.optim.SDG(
+        elif optimizer in ["sgd", "SGD"]:
+            print("Optimizer: SGD")
+            optimizer = torch.optim.SGD(
                 parameters, lr=learning_rate, momentum=momentum, weight_decay=weight_decay)
         else:
             raise ValueError(
-                "The optimizer chosen is not added yet.. please use SDG or Adam")
+                "The optimizer chosen is not added yet.. please use SGD or Adam")
 
         # LOAD CHECKPOINT
 
         # TODO make a check on segmentation and if True, make another traning loop for BB
         # ----- TRAINING LOOP BEGINS -----
-        print(f"Beginning traning with {self.model.__name__} network.")
+        print(f"Beginning traning with {self.model_name} network.")
         if self.pose_estimation:
             # TODO fix pose estimation network
             pass
@@ -111,6 +120,8 @@ class Model:
                 scaler.step(optimizer)
                 scaler.update()
                 train_loss.append(loss)
+
+        return train_loss
 
     def evaluate(self, model, pred, target, device):
         # Evaluate the model with Dice Score (IoU) and loss
