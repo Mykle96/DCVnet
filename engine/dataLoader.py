@@ -17,7 +17,6 @@ class DataLoader(torch.utils.data.DataLoader):
     def collate_data(batch):
         images, targets = zip(*batch)
         return list(images), list(targets)
-"""
 
 
 class ShippingDataset(torch.utils.data.Dataset):
