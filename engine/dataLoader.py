@@ -21,7 +21,7 @@ class DataLoader(torch.utils.data.DataLoader):
 
 
 class ShippingDataset(torch.utils.data.Dataset):
-    def __init__(self, Dir, transform=None):
+    def __init__(self, Dir, pose=False, transform=None):
         # data loading
         self.basePath = Dir
         self.transform = transform
@@ -29,12 +29,27 @@ class ShippingDataset(torch.utils.data.Dataset):
         self.Dir = os.listdir(Dir)
         self.Dir.sort()
         sortedDir = self.Dir
-        data = [sortedDir[x:x+2] for x in range(0, len(sortedDir), 2)]
+        if pose:
+            minFileThresh = len(sortedDir)/3
+            txtFiles = len([f for f in os.listdir(Dir) if f.endswith('txt')])
+            assert txtFiles == minFileThresh, f"There apears to be too few meta files in the the directory! Found {txtFiles}, but need {minFileThresh}"
+            num_elements = 3
+            imageIndex = 2
+            maskIndex = 1
+        else:
+            # if not pose, remove all excess txt files
+            sortedDir = [f for f in os.listdir(Dir) if f.endswith('png')]
+            num_elements = 2
+            imageIndex = 1
+            maskIndex = 0
+
+        data = [sortedDir[x:x+num_elements]
+                for x in range(0, len(sortedDir), num_elements)]
         for index in range(len(data)):
-            data[index][1] = np.array(Image.open(
-                self.basePath+"/"+data[index][1]).convert("RGB"))
-            data[index][0] = np.array(Image.open(
-                self.basePath+"/"+data[index][0]).convert("L"), dtype=np.float32)
+            data[index][imageIndex] = np.array(Image.open(
+                self.basePath+"/"+data[index][imageIndex]).convert("RGB"))
+            data[index][maskIndex] = np.array(Image.open(
+                self.basePath+"/"+data[index][maskIndex]).convert("L"), dtype=np.float32)
         self.Dir = data
         # print(len(self.Dir))
         # print(type(self.Dir))
@@ -45,6 +60,7 @@ class ShippingDataset(torch.utils.data.Dataset):
         return len(self.Dir)
 
     def __getitem__(self, index):
+        # Needs to return a list with the image, mask and keypoints (if pose is true)
         image = self.Dir[index][1]
         mask = self.Dir[index][0]
         print(mask.shape)
