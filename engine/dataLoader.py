@@ -4,7 +4,7 @@ import math
 import tqdm
 import os
 from PIL import Image
-
+from tqdm import tqdm
 """
 class DataLoader(torch.utils.data.DataLoader):
     def __init__(self, dataset, **kwargs):
@@ -24,6 +24,7 @@ class ShippingDataset(torch.utils.data.Dataset):
         # data loading
         self.basePath = Dir
         self.transform = transform
+        self.pose = pose
         # List of all the images in the directory
         self.Dir = os.listdir(Dir)
         self.Dir.sort()
@@ -60,8 +61,13 @@ class ShippingDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         # Needs to return a list with the image, mask and keypoints (if pose is true)
-        image = self.Dir[index][1]
-        mask = self.Dir[index][0]
+        if self.pose:
+            image = self.Dir[index][2]
+            mask = self.Dir[index][1]
+        else:
+            image = self.Dir[index][1]
+            mask = self.Dir[index][0]
+
         print(mask.shape)
         # Need to have default transformations if transformations are set to NONE
         if self.transform is not None:
