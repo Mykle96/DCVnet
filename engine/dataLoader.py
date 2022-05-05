@@ -5,6 +5,7 @@ import json
 import os
 from PIL import Image
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 """
 class DataLoader(torch.utils.data.DataLoader):
@@ -39,29 +40,21 @@ class ShippingDataset(torch.utils.data.Dataset):
         self.transform = transform
         self.pose = pose
         # List of all the images in the directory
-        self.Dir = os.listdir(Dir)
-        self.Dir.sort()
-        sortedDir = self.Dir
-
+        data = self.getDataList(Dir)
+        print(data)
         if pose:
             # If pose is set to True: check that there are enough meta files and update the local variables
-            minFileThresh = len(sortedDir)/3
-            txtFiles = len([f for f in os.listdir(Dir) if f.endswith('txt')])
-            assert txtFiles == minFileThresh, f"There apears to be too few meta files in the the directory! Found {txtFiles}, but need {minFileThresh}"
             num_elements = 3
-            pose_index = 0
-            imageIndex = 2
+            pose_index = 2
+            imageIndex = 0
             maskIndex = 1
 
         else:
             # if not pose, remove all excess txt files if there are any and update local variables
-            sortedDir = [f for f in os.listdir(Dir) if f.endswith('png')]
             num_elements = 2
-            imageIndex = 1
-            maskIndex = 0
-        # Split the dataset into lists of lists containing the pose, mask and image
-        data = [sortedDir[x:x+num_elements]
-                for x in range(0, len(sortedDir), num_elements)]
+            imageIndex = 0
+            maskIndex = 1
+
         print("Initializing the dataset")
         for index in tqdm(range(len(data))):
             data[index][imageIndex] = np.array(Image.open(
@@ -89,13 +82,19 @@ class ShippingDataset(torch.utils.data.Dataset):
         else:
             image = self.Dir[index][1]
             mask = self.Dir[index][0]
-
+        #mask[mask != 0] = 255
+        # plt.imshow(mask)
+        # plt.show()
         print("Mask shape: ", mask.shape)
         print("Image shape: ", image.shape)
         # Need to have default transformations if transformations are set to NONE
         if self.transform is not None:
             raise NotImplementedError(
-                "Transformations are not handled yet! set to None")
+                "Custom Transformations are not handled yet! set to None")
+        else:
+            # Check if the images are of the dimentions of 600x600, if not set them to that size
+            pass
+
         if self.pose:
             return keypoints, image, mask
         else:
@@ -127,6 +126,52 @@ class ShippingDataset(torch.utils.data.Dataset):
         for i in range(len(valuesList)):
             tmpCord[i] = np.array([valuesList[i]["x"], valuesList[i]['y']])
         return tmpCord
+
+    def getDataList(self, dirPath):
+        """
+        This monstrosity of a function returns the data in a list format of [[image, mask, meta_file],...,]
+        It splits the dataset into three (if pose is selected) lists, sorts them in ascending order and combines
+        them agin.
+        """
+        dataList = sorted(os.listdir(dirPath), key=len)
+        if self.pose:
+
+            # Split up the image files and sort in ascending order
+            images = list(filter(lambda x: "_img" in x, dataList))
+            images = sorted(
+                images, key=lambda x: int(x.split('_', 1)[0]))
+
+            # Split up the mask files and sort in ascending order
+            masks = list(filter(lambda x: "_id" in x, dataList))
+            masks = sorted(masks, key=lambda x: int(x.split('_', 1)[0]))
+
+            # Split up the label files and sort in ascending order
+            labels = list(filter(lambda x: ".txt" in x, dataList))
+            labels = sorted(
+                labels, key=lambda x: int(x.split('.', 1)[0]))
+
+            numImages = len(images)
+            numLabels = len(labels)
+            assert numImages == numLabels, f"The number of label files does not match the number of images! Images: {numImages}, label files: {numLabels}"
+            return [[a, b, c] for a, b, c in zip(images, masks, labels)]
+        else:
+            # If not pose, remove all the txt files
+            self.Dir = [f for f in dataList if f.endswith('png')]
+
+            # Split up the image files and sort in ascending order
+            images = list(filter(lambda x: "_img" in x, dataList))
+            images = sorted(
+                images, key=lambda x: int(x.split('_', 1)[0]))
+
+            # Split up the mask files and sort in ascending order
+            masks = list(filter(lambda x: "_id" in x,    dataList))
+            masks = sorted(masks, key=lambda x: int(x.split('_', 1)[0]))
+
+            numImages = len(images)
+            numMasks = len(masks)
+            assert numImages == numMasks, f"The number of masks does not match the number of images! Images: {numImages}, Masks: {numMasks}"
+
+            return [[a, b] for a, b in zip(images, masks)]
 
 
 class SegmentationDataset(torch.utils.data.Dataset):
