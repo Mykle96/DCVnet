@@ -23,7 +23,18 @@ class DataLoader(torch.utils.data.DataLoader):
 
 class ShippingDataset(torch.utils.data.Dataset):
     def __init__(self, Dir, pose=False, transform=None):
-        # data loading
+        """
+        A Class for initializing the SINTEF 6DPE ISO Container Dataset. It is important that images, masks and txt files
+        are in the same directory, or else it will fail. The class formats the data like so: [[pose_index, maskIndex, imageIndex],...,]
+
+        args:
+            Dir: Path to the directory containing the dataset
+            pose: Set to True if the pose data is to be used. (Default: False)
+            transform: Specifiy custom transforms. Needs to be a list. (Default: None)
+
+        return:
+            None
+        """
         self.basePath = Dir
         self.transform = transform
         self.pose = pose
@@ -31,7 +42,9 @@ class ShippingDataset(torch.utils.data.Dataset):
         self.Dir = os.listdir(Dir)
         self.Dir.sort()
         sortedDir = self.Dir
+
         if pose:
+            # If pose is set to True: check that there are enough meta files and update the local variables
             minFileThresh = len(sortedDir)/3
             txtFiles = len([f for f in os.listdir(Dir) if f.endswith('txt')])
             assert txtFiles == minFileThresh, f"There apears to be too few meta files in the the directory! Found {txtFiles}, but need {minFileThresh}"
@@ -41,15 +54,16 @@ class ShippingDataset(torch.utils.data.Dataset):
             maskIndex = 1
 
         else:
-            # if not pose, remove all excess txt files
+            # if not pose, remove all excess txt files if there are any and update local variables
             sortedDir = [f for f in os.listdir(Dir) if f.endswith('png')]
             num_elements = 2
             imageIndex = 1
             maskIndex = 0
-
+        # Split the dataset into lists of lists containing the pose, mask and image
         data = [sortedDir[x:x+num_elements]
                 for x in range(0, len(sortedDir), num_elements)]
-        for index in range(len(data)):
+        print("Initializing the dataset")
+        for index in tqdm(range(len(data))):
             data[index][imageIndex] = np.array(Image.open(
                 self.basePath+"/"+data[index][imageIndex]).convert("RGB"))
             data[index][maskIndex] = np.array(Image.open(
@@ -60,7 +74,6 @@ class ShippingDataset(torch.utils.data.Dataset):
                 labelsArray = self.getLabelsArray(
                     poseDict["screenCornerCoordinates"])
                 data[index][pose_index] = labelsArray
-        # Data format is [[pose_index, maskIndex, imageIndex]]
         self.Dir = data
         return
 
@@ -72,6 +85,7 @@ class ShippingDataset(torch.utils.data.Dataset):
         if self.pose:
             image = self.Dir[index][2]
             mask = self.Dir[index][1]
+            keypoints = self.Dir[index][0]
         else:
             image = self.Dir[index][1]
             mask = self.Dir[index][0]
@@ -82,7 +96,10 @@ class ShippingDataset(torch.utils.data.Dataset):
         if self.transform is not None:
             raise NotImplementedError(
                 "Transformations are not handled yet! set to None")
-        return image, mask
+        if self.pose:
+            return keypoints, image, mask
+        else:
+            return image, mask
 
     def formatStringToDict(self, string):
         newString = ""

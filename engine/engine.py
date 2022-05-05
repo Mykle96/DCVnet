@@ -101,9 +101,6 @@ class Model:
 
             # Iterate over the dataset
             for batch_idx, (data, targets) in enumerate(iterable):
-                print("ESPEN")
-                # print("DATA: ", data.shape)
-                # print("MASK: ", targets.shape)
 
                 data = data.float().permute(0, 3, 1, 2).to(device=DEVICE)
                 targets = targets.float().unsqueeze(1).to(device=DEVICE)

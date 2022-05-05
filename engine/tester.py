@@ -41,9 +41,9 @@ loaded_validation_data = DataLoader(
 
 """
 classes = ["container"]
-test = ShippingDataset(TRAIN_DIR)
+test = ShippingDataset(TRAIN_DIR,)
 
-loaded_test = DataLoader(test, batch_size=32, shuffle=True)
+loaded_test = DataLoader(test, batch_size=2, shuffle=True)
 
 # print(loaded_test)
 # print(type(loaded_test))
