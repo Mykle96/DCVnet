@@ -5,7 +5,7 @@ import tqdm
 import os
 from PIL import Image
 
-
+"""
 class DataLoader(torch.utils.data.DataLoader):
     def __init__(self, dataset, **kwargs):
 
@@ -17,9 +17,45 @@ class DataLoader(torch.utils.data.DataLoader):
     def collate_data(batch):
         images, targets = zip(*batch)
         return list(images), list(targets)
+"""
 
 
 class ShippingDataset(torch.utils.data.Dataset):
+    def __init__(self, Dir, transform=None):
+        # data loading
+        self.basePath = Dir
+        self.transform = transform
+        # List of all the images in the directory
+        self.Dir = os.listdir(Dir)
+        self.Dir.sort()
+        sortedDir = self.Dir
+        data = [sortedDir[x:x+2] for x in range(0, len(sortedDir), 2)]
+        for index in range(len(data)):
+            data[index][1] = np.array(Image.open(
+                self.basePath+"/"+data[index][1]).convert("RGB"))
+            data[index][0] = np.array(Image.open(
+                self.basePath+"/"+data[index][0]).convert("L"), dtype=np.float32)
+        self.Dir = data
+        # print(len(self.Dir))
+        # print(type(self.Dir))
+        # print(data)
+        return
+
+    def __len__(self):
+        return len(self.Dir)
+
+    def __getitem__(self, index):
+        image = self.Dir[index][1]
+        mask = self.Dir[index][0]
+        print(mask.shape)
+        # Need to have default transformations if transformations are set to NONE
+        if self.transform is not None:
+            raise NotImplementedError(
+                "Transformations are not handled yet! set to None")
+        return image, mask
+
+
+class SegmentationDataset(torch.utils.data.Dataset):
     def __init__(self, imageDir, maskDir, transform=None):
         # data loading
         self.imageDir = imageDir
@@ -45,30 +81,3 @@ class ShippingDataset(torch.utils.data.Dataset):
         if self.transform is not None:
             raise NotImplementedError(
                 "Transformations are not handled yet! set to None")
-
-
-class TestDataset(torch.utils.data.Dataset):
-    def __init__(self, Dir, transform=None):
-        # data loading
-        self.basePath = Dir
-        self.transform = transform
-        # List of all the images in the directory
-        self.Dir = os.listdir(Dir)
-
-        print(len(self.Dir))
-        # print(type(self.Dir))
-        # print(self.Dir)
-        return
-
-    def __len__(self):
-        return len(self.Dir)
-
-    def __getitem__(self, index):
-        self.Dir.sort()
-        sortedDir = self.Dir
-        data = [sortedDir[x:x+3] for x in range(0, len(sortedDir), 3)]
-        data[index][2] = np.array(Image.open(
-            self.basePath+"/"+data[index][2]).convert("RGB"))
-        data[index][1] = np.array(Image.open(
-            self.basePath+"/"+data[index][1]).convert("L"), dtype=np.float32)
-        print("data", data)

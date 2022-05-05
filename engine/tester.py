@@ -1,6 +1,7 @@
 import torch
 #import engine
-from dataLoader import(DataLoader, ShippingDataset, TestDataset)
+from torch.utils.data import DataLoader
+from dataLoader import(ShippingDataset)
 from systemConfig import systems_configurations
 
 # Hyperparameters
@@ -38,4 +39,14 @@ loaded_validation_data = DataLoader(
 
 """
 
-test = TestDataset(TEST_DIR)
+test = ShippingDataset(TEST_DIR)
+
+loaded_test = DataLoader(test, batch_size=1, shuffle=False)
+
+# print(loaded_test)
+# print(type(loaded_test))
+
+#test_f, test_l = next(iter(loaded_test))
+print("-"*40)
+print(test)
+print(len(test))
