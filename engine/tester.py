@@ -1,6 +1,6 @@
 import torch
 #import engine
-from dataLoader import(DataLoader, ShippingDataset)
+from dataLoader import(DataLoader, ShippingDataset, TestDataset)
 from systemConfig import systems_configurations
 
 # Hyperparameters
@@ -14,10 +14,11 @@ TRAIN_IMG_DIR = '../data/dummy-data/train'
 TRAIN_MASK_DIR = '../data/dummy-data/train-mask'
 VAL_IMG_DIR = '../data/dummy-data/validation'
 VAL_MASK_DIR = '../data/dummy-data/valid-mask'
+TEST_DIR = '../data/dummy-data/test'
 # DEVICE = systemConfig.systems_configurations()  # Sets the device to cpu or available gpu(s)
 
 # Test load of dataset
-
+"""
 training_data = ShippingDataset(imageDir=TRAIN_IMG_DIR,
                                 maskDir=TRAIN_MASK_DIR, transform=None)
 validation_data = ShippingDataset(imageDir=VAL_IMG_DIR,
@@ -35,3 +36,6 @@ loaded_training_data = DataLoader(
 loaded_validation_data = DataLoader(
     validation_data, batch_size=BATCH_SIZE, shuffle=True)
 
+"""
+
+test = TestDataset(TEST_DIR)

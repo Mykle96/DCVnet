@@ -25,6 +25,7 @@ class Model:
 
     # Networks
     DEFAULT = 'UNET'
+    MASKRCNN = ''
 
     def __init__(self, model=DEFAULT, classes=None, segmentation=True, pose_estimation=False, pretrained=False, verbose=True):
         # initialize the model class
@@ -101,6 +102,7 @@ class Model:
                 with torch.cuda.amp.autocast():
                     predictions = self._model(data)
                     loss = loss_fn(predictions, targets)
+                    # predKey =  trainPoseData
 
                 # backward - calculating and updating the gradients of the network
                 optimizer.zero_grad()
