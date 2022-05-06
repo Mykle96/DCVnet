@@ -2,21 +2,20 @@
 import torch
 import numpy as np
 from tqdm import tqdm
-import trainer
 import os
 import sys
 import pandas
 import cython
 import warnings
 import time
-
+import matplotlib.pyplot as plt
 # internal imports
 from vectorField import VectorField
 # from dataLoader import DataLoader
 from torch.utils.data import DataLoader
 from model.network import UNET
 from vectorField import VectorField
-from visuals.visualization import *
+#from DCVnet.visuals.visualization import *
 
 
 # engine function for training (and validation), evaluation
@@ -38,6 +37,7 @@ class Model:
         # initialize the model class
         # If verbose is selected give more feedback of the process
         self.model_name = model
+        self.pose_estimation = pose_estimation
         self.verbose = verbose
         self._device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
@@ -88,6 +88,9 @@ class Model:
 
         # LOAD CHECKPOINT
 
+        # Set model to the correct device
+        self._model.to(device=DEVICE)
+
         # TODO make a check on segmentation and if True, make another traning loop for BB
         # ----- TRAINING LOOP BEGINS -----
         print(f"Beginning traning with {self.model_name} network.")
@@ -122,6 +125,10 @@ class Model:
                 with torch.cuda.amp.autocast():
                     predictions = self._model(data)
                     loss = loss_fn(predictions, targets)
+
+                    if self.verbose & epoch % 10 == 0:
+                        self.show_prediction(data, prediction)
+
                     train_loss.append(loss)
                     total_loss = sum(train_loss)
                     # predKey =  trainPoseData
@@ -147,6 +154,7 @@ class Model:
                     for batch_idx, (images, targets) in enumerate(iterable):
                         # TODO fix the validation loop
                         pass
+            # If epoch is 10, print a prediction
 
         return train_loss
 
@@ -170,13 +178,25 @@ class Model:
         self._model.train()
 
     def evaluate(self, model, pred, target, device):
+        # measure the time used
         # Evaluate the model with Dice Score (IoU) and loss
 
         raise NotImplementedError()
 
-    def predict(self):
-        # measure the time used
-        raise NotImplementedError()
+    def show_prediction(self, image, prediction):
+        # Show prediction
+        #fig, (image,prediction) = plt.subplots(1,2)
+        fig = plt.figure(figsize=(6, 6), dpi=200)
+        img = fig.add_subplot(2, 3, 1)
+        img.set_title("Image")
+        img.imshow(image)
+
+        pred = fig.add_subplot(2, 3, 2)
+        pred.set_title("Prediction")
+        pred.imshow(prediction)
+        plt.show()
+
+        return
 
     def save(self, file):
         torch.save(self._model.state_dict(), file)
