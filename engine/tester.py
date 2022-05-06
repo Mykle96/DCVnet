@@ -44,7 +44,7 @@ loaded_validation_data = DataLoader(
 classes = ["container"]
 test = SINTEFDataset(TRAIN_DIR,)
 
-loaded_test = DataLoader(test, batch_size=1, shuffle=True)
+loaded_test = DataLoader(test, batch_size=5, shuffle=True)
 
 # print(loaded_test)
 # print(type(loaded_test))

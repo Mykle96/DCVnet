@@ -15,7 +15,7 @@ from vectorField import VectorField
 from torch.utils.data import DataLoader
 from model.network import UNET
 from vectorField import VectorField
-#from DCVnet.visuals.visualization import *
+# from DCVnet.visuals.visualization import *
 
 
 # engine function for training (and validation), evaluation
@@ -111,7 +111,7 @@ class Model:
                 # TODO See if these data handling functions can be done elsewhere
                 data = data.float().permute(0, 3, 1, 2).to(device=DEVICE)
                 targets = targets.float().unsqueeze(1).to(device=DEVICE)
-
+                self.show_prediction(data, targets)
                 if self.pose_estimation:
                     # generate pose data (VectorField)
                     if self.verbose:
@@ -136,6 +136,7 @@ class Model:
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
                 scaler.update()
+
             print(f"Train Loss: {total_loss/len(dataset.dataset)}")
 
             if self.verbose & epoch % 10 == 0:
@@ -162,11 +163,11 @@ class Model:
                             if self.verbose:
                                 print(
                                     "Generating validation data for keypoint localization")
-                            keypoints = []  # temporary placeholder
-                            vectorfield = VectorField(
-                                targets, images, keypoints)
-                            trainPoseData = vectorfield.calculate_vector_field(
-                                targets, data, keypoints)
+                                keypoints = []  # temporary placeholder
+                                vectorfield = VectorField(
+                                    targets, images, keypoints)
+                                trainPoseData = vectorfield.calculate_vector_field(
+                                    targets, data, keypoints)
 
                         with torch.cuda.amp.autocast():
                             predictions = self._model(images)
@@ -207,10 +208,12 @@ class Model:
 
     def show_prediction(self, image, prediction):
         # Show prediction
-        #fig, (image,prediction) = plt.subplots(1,2)
-        image = image.detach().squeeze(0).permute(1, 2, 0).cpu()
-        print("IMAGE: ", image.shape)
-        prediction = prediction.detach().squeeze(1).permute(1, 2, 0).cpu()
+        image = image.cpu().permute(0, 2, 3, 1).numpy()
+        image = image[0]
+        print(image.shape)
+        prediction = prediction.cpu().permute(0, 2, 3, 1).numpy()
+        prediction = prediction[0].squeeze()
+        print(prediction.shape)
         fig = plt.figure(figsize=(10, 10))
         img = fig.add_subplot(2, 3, 1)
         img.set_title("Image")
@@ -220,8 +223,6 @@ class Model:
         pred.set_title("Prediction")
         pred.imshow(prediction)
         plt.show()
-
-        return
 
     def save(self, file):
         torch.save(self._model.state_dict(), file)
