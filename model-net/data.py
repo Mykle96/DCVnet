@@ -18,7 +18,31 @@ def formatStringToDict(string):
             newString += stringList[i]+","
     newString = newString[:-1]
     return json.loads(newString)
-#Trenger: Labels 
+
+def getLabels(path):
+	with open(path, encoding="utf-8") as f:
+		#Labels er her all data som hentes fra .txt filen 
+		labels = json.loads(f.readline())
+		
+	keyList = ["worldCornerCoordinates", "screenCornerCoordinates"]
+	for key in keyList:
+		labels[key] = formatStringToDict(labels[key])
+	return labels
+
+def getLabelsArray(dict):
+	tmpCord = np.zeros((len(dict.keys()), 2))
+	valuesList = list(dict.values())
+	for i in range(len(valuesList)):
+		tmpCord[i] = np.array([valuesList[i]["x"], valuesList[i]['y']])
+	return tmpCord
+
+def dictToArray(hypDict):
+	coordArray = np.zeros((len(hypDict.keys()), 2))
+	for key, hyps in hypDict.items():
+		coordArray[key] = np.array([round(hyps[1]), round(hyps[0])]) # x, y format
+	return coordArray
+
+
 
 # takes input image and generates unit vector training data
 def coordsTrainingGenerator(batchSize, masterList = None, height = 600, width = 600, altLabels = False): 
@@ -105,16 +129,6 @@ def setTrainingPixel(outImage, y, x, screenLabels, height, width): # for each pi
 	
 		outImage[y][x][i * 2 + 1] = yDiff / mag # assign unit vectors pointing from coordinate to keypoint
 		outImage[y][x][i * 2] = xDiff / mag
-
-
-def getLabels(path):
-	with open(path, encoding="utf-8") as f:
-		labels = json.loads(f.readline())
-		
-	keyList = ["worldCornerCoordinates", "screenCornerCoordinates"]
-	for key in keyList:
-		labels[key] = formatStringToDict(labels[key])
-	return labels
 
 
 
@@ -269,9 +283,3 @@ def getMean(hypDict): # get weighted average of coordinates, weights list
 		xMean /= totalWeight
 		meanDict[key] = [yMean, xMean]
 	return meanDict
-
-def dictToArray(hypDict):
-	coordArray = np.zeros((len(hypDict.keys()), 2))
-	for key, hyps in hypDict.items():
-		coordArray[key] = np.array([round(hyps[1]), round(hyps[0])]) # x, y format
-	return coordArray

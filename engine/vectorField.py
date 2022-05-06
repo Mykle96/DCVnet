@@ -3,6 +3,7 @@ import math as m
 import numpy as np
 import matplotlib.pyplot as plt
 import cython
+import colorsys
 
 DEFAULT_CLASS = "container"
 
@@ -102,9 +103,43 @@ class VectorField:
             vectors[pixel[0]][pixel[1]][keypoint*2+1] = yDiff/magnitude
             vectors[pixel[0]][pixel[1]][keypoint*2] = xDiff/magnitude
 
-    def visualize_gt_vectorfield(self, field):
+    def visualize_gt_vectorfield(self, field, keypoint):
         # Takes in a np_array of the found unit vector field and displays it
-        raise NotImplementedError()
+        #Keypoint is a single keypoint on the format (x,y) 
+        #Field is a vectorfield on the format (600,600,18) 
+        newImg = np.zeros((600, 600, 3))
+        numCords = int(field.shape[2]/2) 
+
+        for i in range(field.shape[0]):
+            for j in range(field.shape[1]):
+                if(field[i][j] != np.zeros(2*numCords)).all():
+                    y = i
+                    x = j
+                    cx= int(round(keypoint[0]*600))
+                    cy = int(round(600-keypoint[1]*600))
+                    if(cx-x)<0:
+                    #(2) og (3)
+                        angle = m.atan((cy-y)/(cx-x))+m.pi
+                    elif(cy-y)<0:
+                        #(4)
+                        if(cx == x):
+                            #270 grader
+                            angle = 3/2*m.pi
+                        else:
+                            angle = m.atan((cy-y)/(cx-x))+2*m.pi
+                    else:
+                        #(1)
+                        if(cx ==x):
+                            angle = m.pi/2
+                        else:
+                            angle = m.atan((cy-y)/(cx-x))
+                
+                    h = angle/(2*m.pi)                  
+                    rgb = colorsys.hsv_to_rgb(h, 1.0, 1.0)
+                    newImg[i][j] = rgb          
+                    
+        plt.plot(cx, cy, marker='.', color="white")
+        plt.imshow(newImg)    
 
 
 def test():
