@@ -90,6 +90,7 @@ class Model:
 
         # Set model to the correct device
         self._model.to(device=DEVICE)
+        losses = []
 
         # TODO make a check on segmentation and if True, make another traning loop for BB
         # ----- TRAINING LOOP BEGINS -----
@@ -110,10 +111,9 @@ class Model:
                 # TODO See if these data handling functions can be done elsewhere
                 data = data.float().permute(0, 3, 1, 2).to(device=DEVICE)
                 targets = targets.float().unsqueeze(1).to(device=DEVICE)
-                print("DATA: ", data.shape)
-                print("MASK: ", targets.shape)
-                # generate pose data (VectorField)
+
                 if self.pose_estimation:
+                    # generate pose data (VectorField)
                     if self.verbose:
                         print("Generating training data for keypoint localization")
                     keypoints = []  # temporary placeholder
@@ -126,9 +126,6 @@ class Model:
                     predictions = self._model(data)
                     loss = loss_fn(predictions, targets)
 
-                    if self.verbose & epoch % 10 == 0:
-                        self.show_prediction(data, prediction)
-
                     train_loss.append(loss)
                     total_loss = sum(train_loss)
                     # predKey =  trainPoseData
@@ -139,6 +136,10 @@ class Model:
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
                 scaler.update()
+            print(f"Train Loss: {total_loss/len(dataset.dataset)}")
+
+            if self.verbose & epoch % 10 == 0:
+                self.show_prediction(data, predictions)
 
             # ------ VALIDATION LOOP BEGINS -------
             if val_dataset is not None:
@@ -146,6 +147,7 @@ class Model:
 
                 with torch.no_grad():
                     if self.verbose:
+                        print("="*50)
                         print("Starting iteration over validation dataset")
 
                     iterable = tqdm(val_dataset, position=0,
@@ -153,7 +155,27 @@ class Model:
 
                     for batch_idx, (images, targets) in enumerate(iterable):
                         # TODO fix the validation loop
-                        pass
+                        images = images.float().permute(0, 3, 1, 2).to(device=DEVICE)
+                        targets = targets.float().unsqueeze(1).to(device=DEVICE)
+                        if self.pose_estimation:
+                            # generate pose data (VectorField)
+                            if self.verbose:
+                                print(
+                                    "Generating validation data for keypoint localization")
+                            keypoints = []  # temporary placeholder
+                            vectorfield = VectorField(
+                                targets, images, keypoints)
+                            trainPoseData = vectorfield.calculate_vector_field(
+                                targets, data, keypoints)
+
+                        with torch.cuda.amp.autocast():
+                            predictions = self._model(images)
+                            losses = loss_fn(predictions, targets)
+                            val_loss.append(losses)
+                            total_loss = sum(val_loss)
+                            avg_loss += total_loss.item()
+                    avg_loss /= len(val_dataset.dataset)
+
             # If epoch is 10, print a prediction
 
         return train_loss
@@ -186,10 +208,13 @@ class Model:
     def show_prediction(self, image, prediction):
         # Show prediction
         #fig, (image,prediction) = plt.subplots(1,2)
-        fig = plt.figure(figsize=(6, 6), dpi=200)
+        image = image.detach().squeeze(0).permute(1, 2, 0).cpu()
+        print("IMAGE: ", image.shape)
+        prediction = prediction.detach().squeeze(1).permute(1, 2, 0).cpu()
+        fig = plt.figure(figsize=(10, 10))
         img = fig.add_subplot(2, 3, 1)
         img.set_title("Image")
-        img.imshow(image)
+        img.imshow(image/255)
 
         pred = fig.add_subplot(2, 3, 2)
         pred.set_title("Prediction")
