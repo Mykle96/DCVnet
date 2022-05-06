@@ -39,7 +39,6 @@ class ShippingDataset(torch.utils.data.Dataset):
         self.pose = pose
         # List of all the images in the directory
         data = self.getDataList(Dir)
-        print(data)
         if pose:
             # If pose is set to True: check that there are enough meta files and update the local variables
             num_elements = 3
@@ -81,10 +80,6 @@ class ShippingDataset(torch.utils.data.Dataset):
             image = self.Dir[index][0]
             mask = self.Dir[index][1]
         #mask[mask != 0] = 255
-        # plt.imshow(mask)
-        # plt.show()
-        print("Mask shape: ", mask.shape)
-        print("Image shape: ", image.shape)
         # Need to have default transformations if transformations are set to NONE
         if self.transform is not None:
             raise NotImplementedError(

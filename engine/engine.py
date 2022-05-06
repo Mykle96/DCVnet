@@ -72,7 +72,7 @@ class Model:
         if optimizer in ["adam", "Adam"]:
             print("Optimizer: Adam")
             optimizer = torch.optim.Adam(
-                parameters, lr=learning_rate, momentum=momentum, weight_decay=weight_decay)
+                parameters, lr=learning_rate, weight_decay=weight_decay)
         elif optimizer in ["sgd", "SGD"]:
             print("Optimizer: SGD")
             optimizer = torch.optim.SGD(
@@ -141,11 +141,30 @@ class Model:
                     iterable = tqdm(val_dataset, position=0,
                                     leave=True) if self.verbose else val_dataset
 
-                    for batch_idx, (images, data) in enumerate(iterable):
+                    for batch_idx, (images, targets) in enumerate(iterable):
                         # TODO fix the validation loop
                         pass
 
         return train_loss
+
+    def accuracy(self, image, target, thershold=0.5, device=DEVICE):
+        numCorrect = 0
+        diceScore = 0
+        numPixels = 0
+
+        self._model.eval()
+
+        with torch.no_grad():
+            prediction = torch.sigmoid(model(image))
+            prediction = (prediction > thershold).float()
+            numCorrect += (prediction == target).sum()
+            numPixels += torch.numel(prediction)
+            diceScore += (2 * (prediction * target).sum()) / (
+                (prediction + target).sum() + 1e-8
+            )
+        print(f"Acc: {numCorrect/numPixels*100:.2f}")
+        print(f"Dice Score: {diceScore}")
+        self._model.train()
 
     def evaluate(self, model, pred, target, device):
         # Evaluate the model with Dice Score (IoU) and loss
