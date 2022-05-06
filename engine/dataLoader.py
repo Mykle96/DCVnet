@@ -13,14 +13,12 @@ class SINTEFDataLoader(torch.utils.data.DataLoader):
 
         super().__init__(dataset, collate_fn=SINTEFDataLoader.collate_data, **kwargs)
 
-    # Converts a list of tuples into a tuple of lists so that
-    # it can properly be fed to the model for training
     @staticmethod
     def collate_data(batch):
         images, targets = zip(*batch)
 
 
-class ShippingDataset(torch.utils.data.Dataset):
+class SINTEFDataset(torch.utils.data.Dataset):
     def __init__(self, Dir, pose=False, transform=None):
         """
         A Class for initializing the SINTEF 6DPE ISO Container Dataset. It is important that images, masks and txt files

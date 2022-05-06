@@ -1,9 +1,10 @@
 import torch
 #import engine
 from torch.utils.data import DataLoader
-from dataLoader import(ShippingDataset)
+from dataLoader import(SINTEFDataset)
 from systemConfig import systems_configurations
 from engine import *
+
 
 # Hyperparameters
 LEARNING_RATE = 0.004
@@ -22,9 +23,9 @@ TRAIN_DIR = '../data/dataset'
 
 # Test load of dataset
 """
-training_data = ShippingDataset(imageDir=TRAIN_IMG_DIR,
+training_data = SINTEFDataset(imageDir=TRAIN_IMG_DIR,
                                 maskDir=TRAIN_MASK_DIR, transform=None)
-validation_data = ShippingDataset(imageDir=VAL_IMG_DIR,
+validation_data = SINTEFDataset(imageDir=VAL_IMG_DIR,
                                   maskDir=VAL_MASK_DIR,
                                   transform=None)
 
@@ -41,7 +42,7 @@ loaded_validation_data = DataLoader(
 
 """
 classes = ["container"]
-test = ShippingDataset(TRAIN_DIR,)
+test = SINTEFDataset(TRAIN_DIR,)
 
 loaded_test = DataLoader(test, batch_size=2, shuffle=True)
 

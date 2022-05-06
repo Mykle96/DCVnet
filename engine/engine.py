@@ -16,7 +16,7 @@ from vectorField import VectorField
 from torch.utils.data import DataLoader
 from model.network import UNET
 from vectorField import VectorField
-# from DCVnet.visuals.visualization import *
+from visuals.visualization import *
 
 
 # engine function for training (and validation), evaluation
@@ -38,13 +38,18 @@ class Model:
         # initialize the model class
         # If verbose is selected give more feedback of the process
         self.model_name = model
-        self.pose_estimation = pose_estimation
         self.verbose = verbose
         self._device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
 
         if model == self.DEFAULT:
             self._model = UNET()
+
+        if self.pose_estimation:
+            if self.verbose:
+                print("Preparing pose estimation pipeline")
+            # TODO fix pose estimation network
+            pass
 
     def train(self, dataset, val_dataset=None, epochs=100, learning_rate=0.005, optimizer=SDG, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=SCALER):
         loss_fn = torch.nn.BCEWithLogitsLoss()
@@ -86,9 +91,6 @@ class Model:
         # TODO make a check on segmentation and if True, make another traning loop for BB
         # ----- TRAINING LOOP BEGINS -----
         print(f"Beginning traning with {self.model_name} network.")
-        if self.pose_estimation:
-            # TODO fix pose estimation network
-            pass
         for epoch in tqdm(range(epochs)):
             print("="*50)
             print(f'Epoch {epoch + 1} of {epochs}')
@@ -115,6 +117,7 @@ class Model:
                     vectorfield = VectorField(targets, data, keypoints)
                     trainPoseData = vectorfield.calculate_vector_field(
                         targets, data, keypoints)
+
                 # forward
                 with torch.cuda.amp.autocast():
                     predictions = self._model(data)
@@ -147,7 +150,7 @@ class Model:
 
         return train_loss
 
-    def accuracy(self, image, target, thershold=0.5, device=DEVICE):
+    def accuracy(self, image, target, thershold=0.5):
         numCorrect = 0
         diceScore = 0
         numPixels = 0
@@ -155,7 +158,7 @@ class Model:
         self._model.eval()
 
         with torch.no_grad():
-            prediction = torch.sigmoid(model(image))
+            prediction = torch.sigmoid(self._model(image))
             prediction = (prediction > thershold).float()
             numCorrect += (prediction == target).sum()
             numPixels += torch.numel(prediction)
@@ -179,3 +182,18 @@ class Model:
         torch.save(self._model.state_dict(), file)
         if self.verbose:
             print("Model has been saved!")
+
+
+class PoseModel:
+
+    def __init__(self, model, verbose=True):
+        raise NotImplementedError
+
+    def train(self):
+        raise NotImplementedError
+
+    def evaluate(self):
+        raise NotImplementedError
+
+    def save(self):
+        raise NotImplementedError

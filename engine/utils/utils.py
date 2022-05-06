@@ -8,6 +8,8 @@ import torchvision
 #from dataLoader import ShippingDataset
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
+from DCVnet.engine.engine import Model
+
 
 """
 Utility file containing a lot of functions used across the system
@@ -88,23 +90,6 @@ def dice_score(prediction, target, **kwargs):
 
 def hot_encoder():
     raise NotImplementedError("Not yet implemented")
-
-
-def accuracy(self, image, target, thershold=0.5, device=DEVICE):
-    numCorrect = 0
-    diceScore = 0
-    numPixels = 0
-
-    self._model.eval()
-
-    with torch.no_grad():
-        prediction = torch.sigmoid(model(x))
-        prediction = (prediction > thershold).float()
-        numCorrect += (prediction == target).sum()
-        numPixels += torch.numel(prediction)
-        dice_score += (2 * (prediction * y).sum()) / (
-            (prediction + y).sum() + 1e-8
-        )
 
 
 def check_accuracy(loader, model, device="cuda"):
