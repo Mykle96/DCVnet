@@ -27,6 +27,8 @@ class Model:
     # Networks
     DEFAULT = 'UNET'
     MASKRCNN = ''
+
+    # TODO Move these to a config file
     ADAM = 'Adam'
     SDG = 'SGD'
     LOSS = ""
@@ -35,7 +37,6 @@ class Model:
     def __init__(self, model=DEFAULT, classes=None, segmentation=True, pose_estimation=False, device=None, pretrained=False, verbose=True):
         # initialize the model class
         # If verbose is selected give more feedback of the process
-        self.model = model
         self.model_name = model
         self.pose_estimation = pose_estimation
         self.verbose = verbose
@@ -89,6 +90,7 @@ class Model:
             # TODO fix pose estimation network
             pass
         for epoch in tqdm(range(epochs)):
+            print("="*50)
             print(f'Epoch {epoch + 1} of {epochs}')
 
             self._model.train()  # training step initiated
@@ -99,15 +101,16 @@ class Model:
             iterable = tqdm(dataset, position=0,
                             leave=True) if self.verbose else dataset
 
-            # Iterate over the dataset
             for batch_idx, (data, targets) in enumerate(iterable):
-
+                # TODO See if these data handling functions can be done elsewhere
                 data = data.float().permute(0, 3, 1, 2).to(device=DEVICE)
                 targets = targets.float().unsqueeze(1).to(device=DEVICE)
                 print("DATA: ", data.shape)
                 print("MASK: ", targets.shape)
                 # generate pose data (VectorField)
                 if self.pose_estimation:
+                    if self.verbose:
+                        print("Generating training data for keypoint localization")
                     keypoints = []  # temporary placeholder
                     vectorfield = VectorField(targets, data, keypoints)
                     trainPoseData = vectorfield.calculate_vector_field(
@@ -116,6 +119,8 @@ class Model:
                 with torch.cuda.amp.autocast():
                     predictions = self._model(data)
                     loss = loss_fn(predictions, targets)
+                    train_loss.append(loss)
+                    total_loss = sum(train_loss)
                     # predKey =  trainPoseData
 
                 # backward - calculating and updating the gradients of the network
@@ -124,7 +129,21 @@ class Model:
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
                 scaler.update()
-                train_loss.append(loss)
+
+            # ------ VALIDATION LOOP BEGINS -------
+            if val_dataset is not None:
+                avg_loss = 0
+
+                with torch.no_grad():
+                    if self.verbose:
+                        print("Starting iteration over validation dataset")
+
+                    iterable = tqdm(val_dataset, position=0,
+                                    leave=True) if self.verbose else val_dataset
+
+                    for batch_idx, (images, data) in enumerate(iterable):
+                        # TODO fix the validation loop
+                        pass
 
         return train_loss
 

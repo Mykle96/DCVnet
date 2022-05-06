@@ -90,6 +90,23 @@ def hot_encoder():
     raise NotImplementedError("Not yet implemented")
 
 
+def accuracy(self, image, target, thershold=0.5, device=DEVICE):
+    numCorrect = 0
+    diceScore = 0
+    numPixels = 0
+
+    self._model.eval()
+
+    with torch.no_grad():
+        prediction = torch.sigmoid(model(x))
+        prediction = (prediction > thershold).float()
+        numCorrect += (prediction == target).sum()
+        numPixels += torch.numel(prediction)
+        dice_score += (2 * (prediction * y).sum()) / (
+            (prediction + y).sum() + 1e-8
+        )
+
+
 def check_accuracy(loader, model, device="cuda"):
     num_correct = 0
     num_pixels = 0

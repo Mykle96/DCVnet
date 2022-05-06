@@ -7,26 +7,24 @@ from PIL import Image
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
-"""
-class DataLoader(torch.utils.data.DataLoader):
+
+class SINTEFDataLoader(torch.utils.data.DataLoader):
     def __init__(self, dataset, **kwargs):
 
-        super().__init__(dataset, collate_fn=DataLoader.collate_data, **kwargs)
+        super().__init__(dataset, collate_fn=SINTEFDataLoader.collate_data, **kwargs)
 
     # Converts a list of tuples into a tuple of lists so that
     # it can properly be fed to the model for training
     @staticmethod
     def collate_data(batch):
         images, targets = zip(*batch)
-        return list(images), list(targets)
-"""
 
 
 class ShippingDataset(torch.utils.data.Dataset):
     def __init__(self, Dir, pose=False, transform=None):
         """
         A Class for initializing the SINTEF 6DPE ISO Container Dataset. It is important that images, masks and txt files
-        are in the same directory, or else it will fail. The class formats the data like so: [[pose_index, maskIndex, imageIndex],...,]
+        are in the same directory, or else it will fail. The class formats the data like so: [[imageIndex, maskIndex, pose_index],...,]
 
         args:
             Dir: Path to the directory containing the dataset
