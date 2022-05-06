@@ -90,6 +90,23 @@ def hot_encoder():
     raise NotImplementedError("Not yet implemented")
 
 
+def accuracy(self, image, target, thershold=0.5, device=DEVICE):
+    numCorrect = 0
+    diceScore = 0
+    numPixels = 0
+
+    self._model.eval()
+
+    with torch.no_grad():
+        prediction = torch.sigmoid(model(x))
+        prediction = (prediction > thershold).float()
+        numCorrect += (prediction == target).sum()
+        numPixels += torch.numel(prediction)
+        dice_score += (2 * (prediction * y).sum()) / (
+            (prediction + y).sum() + 1e-8
+        )
+
+
 def check_accuracy(loader, model, device="cuda"):
     num_correct = 0
     num_pixels = 0
@@ -161,48 +178,6 @@ def save_predictions_as_imgs(
         torchvision.utils.save_image(y.unsqueeze(1), f"{folder}{idx}.png")
 
     model.train()
-
-
-def get_loaders(
-    train_dir,
-    train_maskdir,
-    val_dir,
-    val_maskdir,
-    batch_size,
-    train_transform,
-    val_transform,
-    num_workers=4,
-    pin_memory=True,
-):
-    train_ds = ShippingDataset(
-        image_dir=train_dir,
-        mask_dir=train_maskdir,
-        transform=train_transform,
-    )
-
-    train_loader = DataLoader(
-        train_ds,
-        batch_size=batch_size,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        shuffle=True,
-    )
-
-    val_ds = ShippingDataset(
-        image_dir=val_dir,
-        mask_dir=val_maskdir,
-        transform=val_transform,
-    )
-
-    val_loader = DataLoader(
-        val_ds,
-        batch_size=batch_size,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        shuffle=False,
-    )
-
-    return train_loader, val_loader
 
 
 def test():

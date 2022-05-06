@@ -3,6 +3,7 @@ import torch
 from torch.utils.data import DataLoader
 from dataLoader import(ShippingDataset)
 from systemConfig import systems_configurations
+from engine import *
 
 # Hyperparameters
 LEARNING_RATE = 0.004
@@ -16,6 +17,7 @@ TRAIN_MASK_DIR = '../data/dummy-data/train-mask'
 VAL_IMG_DIR = '../data/dummy-data/validation'
 VAL_MASK_DIR = '../data/dummy-data/valid-mask'
 TEST_DIR = '../data/dummy-data/test'
+TRAIN_DIR = '../data/dataset'
 # DEVICE = systemConfig.systems_configurations()  # Sets the device to cpu or available gpu(s)
 
 # Test load of dataset
@@ -38,10 +40,10 @@ loaded_validation_data = DataLoader(
     validation_data, batch_size=BATCH_SIZE, shuffle=True)
 
 """
+classes = ["container"]
+test = ShippingDataset(TRAIN_DIR,)
 
-test = ShippingDataset(TEST_DIR)
-
-loaded_test = DataLoader(test, batch_size=1, shuffle=False)
+loaded_test = DataLoader(test, batch_size=2, shuffle=True)
 
 # print(loaded_test)
 # print(type(loaded_test))
@@ -50,3 +52,7 @@ loaded_test = DataLoader(test, batch_size=1, shuffle=False)
 print("-"*40)
 print(test)
 print(len(test))
+
+
+unet = Model(classes=classes)
+losses = unet.train(loaded_test, None, 1)
