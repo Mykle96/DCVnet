@@ -72,11 +72,11 @@ class SINTEFDataset(torch.utils.data.Dataset):
         # Needs to return a list with the image, mask and keypoints (if pose is true)
         if self.pose:
             image = self.Dir[index][0]
-            mask = self.Dir[index][1]
+            mask = self.Dir[index][1]/255
             keypoints = self.Dir[index][2]
         else:
             image = self.Dir[index][0]
-            mask = self.Dir[index][1]
+            mask = self.Dir[index][1]/255
         #mask[mask != 0] = 255
         # Need to have default transformations if transformations are set to NONE
         if self.transform is not None:

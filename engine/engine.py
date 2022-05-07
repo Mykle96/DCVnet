@@ -31,7 +31,7 @@ class Model:
     ADAM = 'Adam'
     SDG = 'SGD'
     LOSS = ""
-    SCALER = torch.cuda.amp.GradScaler()
+    SCALER = torch.cuda.amp.GradScaler(enable=True)
 
     def __init__(self, model=DEFAULT, classes=None, segmentation=True, pose_estimation=False, device=None, pretrained=False, verbose=True):
         # initialize the model class
@@ -39,6 +39,8 @@ class Model:
         self.model_name = model
         self.pose_estimation = pose_estimation
         self.verbose = verbose
+        self.classes = classes
+        self.numClasses = len(classes)
         self._device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
 
@@ -51,18 +53,18 @@ class Model:
             # TODO fix pose estimation network
             pass
 
-    def train(self, dataset, val_dataset=None, epochs=100, learning_rate=0.005, optimizer=SDG, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=SCALER):
-        loss_fn = torch.nn.BCEWithLogitsLoss()
+    def train(self, dataset, val_dataset=None, epochs=100, learning_rate=0.005, optimizer=SDG, loss_fn=None, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=SCALER):
+
         # Check if the dataset is converted or not, if not initiate, also check for any validation sets.
         assert dataset is not None, "No dataset was received, make sure to input a dataset"
         if not isinstance(dataset, DataLoader):
             dataset = DataLoader(dataset, shuffle=True)
 
         if val_dataset is not None and not isinstance(val_dataset, DataLoader):
-            val_dataset = DataLoader(val_dataset, shuffle=False)
+            val_dataset = DataLoader(val_dataset, shuffle=True)
 
         DEVICE = self._device
-
+        BATCH_SIZE = len(dataset)
         # initate training parameters and variables
         train_loss = []
         if val_dataset is not None:
@@ -85,6 +87,14 @@ class Model:
         else:
             raise ValueError(
                 "The optimizer chosen is not added yet.. please use SGD or Adam")
+        # Initialize the loss function
+        if loss_fn is None:
+            if self.numClasses > 1:
+                loss_fn = torch.nn.CrossEntropyLoss()
+            if self.numClasses == 1:
+                loss_fn = torch.nn.BCEWithLogitsLoss()
+        else:
+            loss_fn = loss_fn
 
         # LOAD CHECKPOINT
 
@@ -109,8 +119,10 @@ class Model:
 
             for batch_idx, (data, targets) in enumerate(iterable):
                 # TODO See if these data handling functions can be done elsewhere
-                data = data.float().permute(0, 3, 1, 2).to(device=DEVICE)
-                targets = targets.float().unsqueeze(1).to(device=DEVICE)
+                data = data.permute(0, 3, 1, 2).to(
+                    device=DEVICE, dtype=torch.float32)
+                targets = targets.unsqueeze(1).to(
+                    device=DEVICE, dtype=torch.float32)
                 self.show_prediction(data, targets)
                 if self.pose_estimation:
                     # generate pose data (VectorField)
@@ -126,8 +138,9 @@ class Model:
                     predictions = self._model(data)
                     loss = loss_fn(predictions, targets)
 
-                    train_loss.append(loss)
+                    train_loss.append(loss.item())
                     total_loss = sum(train_loss)
+                    avg_train_loss = total_loss/BATCH_SIZE
                     # predKey =  trainPoseData
 
                 # backward - calculating and updating the gradients of the network
@@ -137,7 +150,9 @@ class Model:
                 scaler.step(optimizer)
                 scaler.update()
 
-            print(f"Train Loss: {total_loss/len(dataset.dataset)}")
+            if self.verbose:
+                print("")
+                print(f"Average Train Loss: {avg_train_loss}")
 
             if self.verbose & epoch % 10 == 0:
                 self.show_prediction(data, predictions)
@@ -208,10 +223,10 @@ class Model:
 
     def show_prediction(self, image, prediction):
         # Show prediction
-        image = image.cpu().permute(0, 2, 3, 1).numpy()
+        image = image.detach().cpu().permute(0, 2, 3, 1).numpy()
         image = image[0]
         print(image.shape)
-        prediction = prediction.cpu().permute(0, 2, 3, 1).numpy()
+        prediction = prediction.detach().float().cpu().permute(0, 2, 3, 1).numpy()
         prediction = prediction[0].squeeze()
         print(prediction.shape)
         fig = plt.figure(figsize=(10, 10))
