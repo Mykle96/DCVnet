@@ -54,7 +54,8 @@ class VectorField:
 
         elif type(keypoints) == dict:
             keypoints = list(keypoints.values())
-
+        elif type(keypoints) == torch.Tensor:
+            keypoints.tolist()
         else:
             raise ValueError(
                 f"Excpected type list or dict, but got {type(keypoints)}. calculate_vector_field function can only handle lists or dicts of keypoints.")
@@ -65,7 +66,7 @@ class VectorField:
         dimentions = [image.shape[0],
                       image.shape[1]]  # [height, width]
         # generate a array for holding the vectors
-
+        print(keypoints)
         unitVectors = np.zeros(
             (dimentions[0], dimentions[1], len(keypoints)*2))
         # Get the mask coordinates from the mask image

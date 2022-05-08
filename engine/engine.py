@@ -31,7 +31,7 @@ class Model:
     ADAM = 'Adam'
     SDG = 'SGD'
     LOSS = ""
-    SCALER = torch.cuda.amp.GradScaler(enable=True)
+    SCALER = torch.cuda.amp.GradScaler()
 
     def __init__(self, model=DEFAULT, classes=None, segmentation=True, pose_estimation=False, device=None, pretrained=False, verbose=True):
         # initialize the model class
@@ -54,7 +54,8 @@ class Model:
             pass
 
     def train(self, dataset, val_dataset=None, epochs=100, learning_rate=0.005, optimizer=SDG, loss_fn=None, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=SCALER):
-
+        
+        
         # Check if the dataset is converted or not, if not initiate, also check for any validation sets.
         assert dataset is not None, "No dataset was received, make sure to input a dataset"
         if not isinstance(dataset, DataLoader):
@@ -62,7 +63,8 @@ class Model:
 
         if val_dataset is not None and not isinstance(val_dataset, DataLoader):
             val_dataset = DataLoader(val_dataset, shuffle=True)
-
+        
+        
         DEVICE = self._device
         BATCH_SIZE = len(dataset)
         # initate training parameters and variables
@@ -116,8 +118,10 @@ class Model:
 
             iterable = tqdm(dataset, position=0,
                             leave=True) if self.verbose else dataset
-
-            for batch_idx, (data, targets) in enumerate(iterable):
+            
+            for batch_idx, (element) in enumerate(iterable):
+                data = element[0]
+                targets = element[1]
                 # TODO See if these data handling functions can be done elsewhere
                 data = data.permute(0, 3, 1, 2).to(
                     device=DEVICE, dtype=torch.float32)
@@ -125,13 +129,14 @@ class Model:
                     device=DEVICE, dtype=torch.float32)
                 self.show_prediction(data, targets)
                 if self.pose_estimation:
+                    keypoints = element[2]
                     # generate pose data (VectorField)
                     if self.verbose:
                         print("Generating training data for keypoint localization")
-                    keypoints = []  # temporary placeholder
                     vectorfield = VectorField(targets, data, keypoints)
                     trainPoseData = vectorfield.calculate_vector_field(
                         targets, data, keypoints)
+                    vectorfield.visualize_gt_vectorfield(trainPoseData[1][-1], keypoints[-1])
 
                 # forward
                 with torch.cuda.amp.autocast():
