@@ -118,30 +118,26 @@ class Model:
                             leave=True) if self.verbose else dataset
 
             for batch_idx, (element) in enumerate(iterable):
-                data = element[0]
-                targets = element[1]
-                # TODO See if these data handling functions can be done elsewhere
-                data = data.permute(0, 3, 1, 2).to(
+                data = element[0].permute(0, 3, 1, 2).to(
                     device=DEVICE, dtype=torch.float32)
-                targets = targets.unsqueeze(1).to(
+                targets = element[1].unsqueeze(1).to(
                     device=DEVICE, dtype=torch.float32)
+
                 self.show_prediction(data, targets)
                 if self.pose_estimation:
                     keypoints = element[2]
-                    # generate pose data (VectorField)
+
                     if self.verbose:
                         print("Generating training data for keypoint localization")
-
+                        print("="*50)
+                    # generate pose data (VectorField)
                     vectorfield = VectorField(targets, data, keypoints)
                     trainPoseData = vectorfield.calculate_vector_field(
                         targets, data, keypoints)
-<<<<<<< HEAD
-                    vectorfield.visualize_gt_vectorfield(
-                        trainPoseData[1][-1], keypoints[-1])
-=======
 
-                    vectorfield.visualize_gt_vectorfield(trainPoseData, keypoints)
->>>>>>> cc96c0883b26e5a631c24509b0630f4863992324
+                    if self.verbose:
+                        vectorfield.visualize_gt_vectorfield(
+                            trainPoseData, keypoints)
 
                 # forward
                 with torch.cuda.amp.autocast():
