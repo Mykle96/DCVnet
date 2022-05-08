@@ -131,11 +131,17 @@ class Model:
                     # generate pose data (VectorField)
                     if self.verbose:
                         print("Generating training data for keypoint localization")
+
                     vectorfield = VectorField(targets, data, keypoints)
                     trainPoseData = vectorfield.calculate_vector_field(
                         targets, data, keypoints)
+<<<<<<< HEAD
                     vectorfield.visualize_gt_vectorfield(
                         trainPoseData[1][-1], keypoints[-1])
+=======
+
+                    vectorfield.visualize_gt_vectorfield(trainPoseData, keypoints)
+>>>>>>> cc96c0883b26e5a631c24509b0630f4863992324
 
                 # forward
                 with torch.cuda.amp.autocast():
