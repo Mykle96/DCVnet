@@ -33,7 +33,7 @@ class Model:
     LOSS = ""
     SCALER = torch.cuda.amp.GradScaler()
 
-    def __init__(self, model=DEFAULT, classes=None, segmentation=True, pose_estimation=False, device=None, pretrained=False, verbose=True):
+    def __init__(self, model=DEFAULT, classes=None, segmentation=True, pose_estimation=False, pretrained=False, verbose=True):
         # initialize the model class
         # If verbose is selected give more feedback of the process
         self.model_name = model
@@ -54,8 +54,7 @@ class Model:
             pass
 
     def train(self, dataset, val_dataset=None, epochs=100, learning_rate=0.005, optimizer=SDG, loss_fn=None, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=SCALER):
-        
-        
+
         # Check if the dataset is converted or not, if not initiate, also check for any validation sets.
         assert dataset is not None, "No dataset was received, make sure to input a dataset"
         if not isinstance(dataset, DataLoader):
@@ -63,8 +62,7 @@ class Model:
 
         if val_dataset is not None and not isinstance(val_dataset, DataLoader):
             val_dataset = DataLoader(val_dataset, shuffle=True)
-        
-        
+
         DEVICE = self._device
         BATCH_SIZE = len(dataset)
         # initate training parameters and variables
@@ -88,7 +86,7 @@ class Model:
                 parameters, lr=learning_rate, momentum=momentum, weight_decay=weight_decay)
         else:
             raise ValueError(
-                "The optimizer chosen is not added yet.. please use SGD or Adam")
+                f"The optimizer chosen: {optimizer}, is either not added yet or invalid.. please use SGD or Adam")
         # Initialize the loss function
         if loss_fn is None:
             if self.numClasses > 1:
@@ -118,7 +116,7 @@ class Model:
 
             iterable = tqdm(dataset, position=0,
                             leave=True) if self.verbose else dataset
-            
+
             for batch_idx, (element) in enumerate(iterable):
                 data = element[0]
                 targets = element[1]
@@ -136,7 +134,8 @@ class Model:
                     vectorfield = VectorField(targets, data, keypoints)
                     trainPoseData = vectorfield.calculate_vector_field(
                         targets, data, keypoints)
-                    vectorfield.visualize_gt_vectorfield(trainPoseData[1][-1], keypoints[-1])
+                    vectorfield.visualize_gt_vectorfield(
+                        trainPoseData[1][-1], keypoints[-1])
 
                 # forward
                 with torch.cuda.amp.autocast():
@@ -144,7 +143,7 @@ class Model:
                     loss = loss_fn(predictions, targets)
 
                     train_loss.append(loss.item())
-                    total_loss = sum(train_loss)
+                    total_loss = sum(loss for loss in train_loss)
                     avg_train_loss = total_loss/BATCH_SIZE
                     # pose =  PoseModel(trainPoseData)
                     #poseLoss = pose.train(oe)

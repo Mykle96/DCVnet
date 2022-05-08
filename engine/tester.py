@@ -43,7 +43,7 @@ loaded_validation_data = DataLoader(
 """
 classes = ["container"]
 #test = SINTEFDataset(TRAIN_DIR, True)
-test = SINTEFDataset(TRAIN_DIR, True)
+test = SINTEFDataset(TRAIN_DIR, False)
 
 loaded_test = DataLoader(test, batch_size=5, shuffle=True)
 
@@ -56,5 +56,5 @@ print(test)
 print(len(test))
 
 
-unet = Model(classes=classes, pose_estimation=True)
+unet = Model(classes=classes, pose_estimation=False)
 losses = unet.train(loaded_test, None, 11)

@@ -8,7 +8,7 @@ import torch.nn as nn
 
 # Network for detecting vetor fields on masks to find the keypoints in question.
 # Cant be too big as speed is key
-# Three layers deep, conv -> Dconv -> Dconv
+# Four layers deep, conv-max -> Dconv -> Dconv -> upconv
 
 
 class DilatedConv(torch.nn.Module):
@@ -19,6 +19,7 @@ class DilatedConv(torch.nn.Module):
                       stride=1, padding=1, dilation=2, bias=False),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
+            nn.Dropout(p=0.2),
         )
 
     def forward(self, x):
@@ -33,6 +34,7 @@ class Conv(torch.nn.Module):
                       stride=1, padding=1, bias=False),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
+            nn.Dropout(p=0.2),
         )
 
     def forward(self, x):
@@ -45,3 +47,6 @@ class DCVnet(torch.nn.Module):
     ):
         super(DCVnet, self).__init__()
         self.downs = nn.ModuleList()
+
+    def forward(self):
+        pass
