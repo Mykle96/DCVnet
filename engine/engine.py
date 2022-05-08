@@ -31,7 +31,7 @@ class Model:
     ADAM = 'Adam'
     SDG = 'SGD'
     LOSS = ""
-    SCALER = torch.cuda.amp.GradScaler(enable=True)
+    SCALER = torch.cuda.amp.GradScaler()
 
     def __init__(self, model=DEFAULT, classes=None, segmentation=True, pose_estimation=False, device=None, pretrained=False, verbose=True):
         # initialize the model class
@@ -141,7 +141,8 @@ class Model:
                     train_loss.append(loss.item())
                     total_loss = sum(train_loss)
                     avg_train_loss = total_loss/BATCH_SIZE
-                    # predKey =  trainPoseData
+                    # pose =  PoseModel(trainPoseData)
+                    #poseLoss = pose.train(oe)
 
                 # backward - calculating and updating the gradients of the network
                 optimizer.zero_grad()
@@ -225,10 +226,10 @@ class Model:
         # Show prediction
         image = image.detach().cpu().permute(0, 2, 3, 1).numpy()
         image = image[0]
-        print(image.shape)
+        # print(image.shape)
         prediction = prediction.detach().float().cpu().permute(0, 2, 3, 1).numpy()
         prediction = prediction[0].squeeze()
-        print(prediction.shape)
+        # print(prediction.shape)
         fig = plt.figure(figsize=(10, 10))
         img = fig.add_subplot(2, 3, 1)
         img.set_title("Image")
@@ -247,7 +248,7 @@ class Model:
 
 class PoseModel:
 
-    def __init__(self, model, verbose=True):
+    def __init__(self, data, model, verbose=True):
         raise NotImplementedError
 
     def train(self):
