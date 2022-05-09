@@ -10,12 +10,12 @@ class DoubleConv(nn.Module):
             nn.Conv2d(in_channels, out_channels, 3,
                       stride=1, padding=1, bias=False),
             nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True),
+            nn.LeakyReLU(inplace=True),
             nn.Dropout(p=0.2),
             nn.Conv2d(out_channels, out_channels, 3,
                       stride=1, padding=1, bias=False),
             nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True),
+            nn.LeakyReLU(inplace=True),
             nn.Dropout(p=0.2),
         )
 
