@@ -9,12 +9,14 @@ import cython
 import warnings
 import time
 import matplotlib.pyplot as plt
+from torch.utils.data import DataLoader
+
 # internal imports
 from vectorField import VectorField
 # from dataLoader import DataLoader
-from torch.utils.data import DataLoader
 from model.network import UNET
 from vectorField import VectorField
+from utils.utils import *
 # from DCVnet.visuals.visualization import *
 
 
@@ -122,6 +124,7 @@ class Model:
                     device=DEVICE, dtype=torch.float32)
                 targets = element[1].unsqueeze(1).to(
                     device=DEVICE, dtype=torch.float32)
+                crop_on_mask(data[0], targets[0])
 
                 self.show_prediction(data, targets)
                 if self.pose_estimation:
@@ -143,7 +146,8 @@ class Model:
                 with torch.cuda.amp.autocast():
                     predictions = self._model(data)
                     loss = loss_fn(predictions, targets)
-
+                    # dice
+                    # Crop if dice > 0.7
                     train_loss.append(loss.item())
                     total_loss = sum(loss for loss in train_loss)
                     avg_train_loss = total_loss/BATCH_SIZE

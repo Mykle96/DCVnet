@@ -57,4 +57,4 @@ print(len(test))
 
 
 unet = Model(classes=classes, pose_estimation=False)
-losses = unet.train(loaded_test, None, 11)
+losses = unet.train(loaded_test, None, epochs=11)

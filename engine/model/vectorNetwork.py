@@ -16,7 +16,7 @@ class DilatedConv(torch.nn.Module):
     def __init__(self, in_channels, out_channels):
         super(DilatedConv, self).__init__()
         self.Dconv = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel=9,
+            nn.Conv2d(in_channels, out_channels, kernel_size=9,
                       stride=1, padding=1, dilation=2, bias=False),
             nn.BatchNorm2d(out_channels),
             nn.LeakyReLU(inplace=True),
@@ -31,7 +31,7 @@ class Conv(torch.nn.Module):
     def __init__(self, in_channels, out_channels):
         super(Conv, self).__init__()
         self.Conv = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel=3,
+            nn.Conv2d(in_channels, out_channels, kernel_size=3,
                       stride=1, padding=1, bias=False),
             nn.BatchNorm2d(out_channels),
             nn.LeakyReLU(inplace=True),
@@ -75,7 +75,7 @@ class DCVnet(torch.nn.Module):
             x = self.pool(x)
 
         x = self.bottleneck(x)
-        x = self.bottleneck(x)
+        #x = self.bottleneck(x)
         skip_connections = skip_connections[::-1]
 
         for idx in range(0, len(self.ups), 2):
@@ -89,3 +89,16 @@ class DCVnet(torch.nn.Module):
             x = self.ups[idx+1](concat_skip)
 
         return self.final_conv(x)
+
+
+def test():
+    x = torch.randn((3, 1, 161, 161))
+    img =
+    model = DCVnet(in_channels=1, out_channels=1)
+    preds = model(x)
+    assert preds.shape == x.shape
+    print("Predictions completed: ", preds)
+
+
+if __name__ == "__main__":
+    test()

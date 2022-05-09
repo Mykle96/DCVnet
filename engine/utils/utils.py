@@ -8,7 +8,7 @@ import torchvision
 #from dataLoader import ShippingDataset
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
-from DCVnet.engine.engine import Model
+#from DCVnet.engine.engine import Model
 
 
 """
@@ -130,6 +130,28 @@ def check_accuracy(loader, model, device="cuda"):
 #----------------------#
 # TRAINING UTILS
 #----------------------#
+
+
+def crop_on_mask(image, mask, threshold=0.6):
+    # Crop the image around the predicted mask
+    # Image: Tensor
+    # Mask: Tensor (?)
+    print(image.shape, type(image))
+    print(mask.shape, type(mask))
+    mask.numpy()
+    coords = np.where(mask >= threshold)[1:3]
+    print("COORDS: ", coords)
+    top_y = min(coords[0])
+    top_x = min(coords[1])
+    height = max(coords[0])-top_y
+    width = max(coords[1]) - top_x
+    crop = torchvision.transforms.functional.crop(
+        image, top_y - 10, top_x - 10, height+20, width+20)
+    print("Crop: ", crop.shape)
+    # NB! Inverts the picutre colors (Might need to fix this)
+    img = torchvision.transforms.ToPILImage('RGB')(crop)
+    img.show()
+    return crop
 
 
 def save_checkpoint(state, filename, **kwargs):
