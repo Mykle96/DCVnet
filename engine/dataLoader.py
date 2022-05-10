@@ -51,7 +51,7 @@ class SINTEFDataset(torch.utils.data.Dataset):
             maskIndex = 1
 
         print("Initializing the dataset")
-        
+
         for index in tqdm(range(len(data))):
             data[index][imageIndex] = np.array(Image.open(
                 self.basePath+"/"+data[index][imageIndex]).convert("RGB"))

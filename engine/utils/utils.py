@@ -1,8 +1,10 @@
 import torch
 from cv2 import cv2
 import numpy as np
-import math
+import math as m
+import colorsys
 import sys
+import random
 import os
 import torchvision
 #from dataLoader import ShippingDataset
@@ -127,6 +129,71 @@ def check_accuracy(loader, model, device="cuda"):
 #----------------------#
 
 
+def visualize_vectorfield(field, keypoint, indx=-1):
+    # Takes in a np_array of the found unit vector field and displays it
+    # Keypoint is a single keypoint on the format (x,y)
+    # Field is a vectorfield on the format (600,600,18)
+
+    # trainPoseData [5,600,600,18] tensor
+    # keypoint (5,9,2) tensor
+    print("Utils fieldtype :", type(field))
+    print("Utils visulize shape: ", keypoint)
+    if not isinstance(field, np.ndarray):
+        field = field.permute(0, 2, 3, 1).detach().squeeze().numpy()
+    keypoint = keypoint.numpy()
+    print("Utils fieldshape :", type(field))
+    print("Utils fieldshape :", field.shape)
+
+    #field = field[imgInt]
+    #all_keypoints = keypoint
+    #keypoint = keypoint[indx]
+    dimentions = [field.shape[0], field.shape[1]]  # y,x
+    print("DIMENTIONS: ", dimentions)
+
+    newImg = np.zeros((dimentions[0], dimentions[1], 3))
+    numCords = int(field.shape[2]/2)
+
+    for i in range(dimentions[0]):
+        for j in range(dimentions[1]):
+            if(field[i][j] != np.zeros(2*numCords)).all():
+
+                cy = j
+                cx = i
+                x = cx + 2*field[i][j][indx-1]
+                y = cy + 2*field[i][j][indx]
+
+                if(cx-x) < 0:
+                    # (2) og (3)
+                    angle = m.atan((cy-y)/(cx-x))+m.pi
+                elif(cy-y) < 0:
+                    # (4)
+                    if(cx == x):
+                        # 270 grader
+                        angle = 3/2*m.pi
+                    else:
+                        angle = m.atan((cy-y)/(cx-x))+2*m.pi
+                else:
+                    # (1)
+                    if(cx == x):
+                        angle = m.pi/2
+                    else:
+                        angle = m.atan((cy-y)/(cx-x))
+
+                h = angle/(2*m.pi)
+                rgb = colorsys.hsv_to_rgb(h, 1.0, 1.0)
+                newImg[i][j] = rgb
+            else:
+                k += 1
+    plt.figure(2)
+    for i in range(len(keypoint)):
+
+        plt.plot(dimentions[1]*keypoint[i][0], dimentions[0]-keypoint[i][1] *
+                 dimentions[0], marker='o', color="black")
+    plt.imshow(newImg)
+    plt.show()
+    raise ValueError
+
+
 #----------------------#
 # TRAINING UTILS
 #----------------------#
@@ -136,22 +203,58 @@ def crop_on_mask(image, mask, threshold=0.6):
     # Crop the image around the predicted mask
     # Image: Tensor
     # Mask: Tensor (?)
+
+    # rename to poseDataGenerator
+    # Make a seperate function for visualizing the croped image and mask
+
+    # TODO Optmize this function
     print(image.shape, type(image))
     print(mask.shape, type(mask))
-    mask.numpy()
-    coords = np.where(mask >= threshold)[1:3]
-    print("COORDS: ", coords)
-    top_y = min(coords[0])
-    top_x = min(coords[1])
-    height = max(coords[0])-top_y
-    width = max(coords[1]) - top_x
-    crop = torchvision.transforms.functional.crop(
-        image, top_y - 10, top_x - 10, height+20, width+20)
-    print("Crop: ", crop.shape)
+    cropedImages = []
+    cropedMask = []
+    coordInfo = []
+    for i in range(len(image)):
+        coords = np.where(mask[i] >= threshold)[1:3]
+        top_y = min(coords[0]) - 10
+        top_x = min(coords[1]) - 10
+        height = max(coords[0])-top_y + 20
+        width = max(coords[1]) - top_x + 20
+
+        info = [top_x, top_y, height, width]
+        coordInfo.append(info)
+
+        if not height % 2 == 0:
+            height += 1
+        if not width % 2 == 0:
+            width += 1
+
+        crop = torchvision.transforms.functional.crop(
+            image[i], top_y, top_x, height, width)
+
+        crop_mask = torchvision.transforms.functional.crop(
+            mask[i], top_y, top_x, height, width)
+
+        crop = torch.unsqueeze(crop, 0)
+        crop_mask = torch.unsqueeze(crop_mask, 0)
+        cropedImages.append(crop)
+        cropedMask.append(crop_mask)
+        print("Crop: ", crop.shape)
     # NB! Inverts the picutre colors (Might need to fix this)
+    # print(cropedImages)
+    #cropedImages = torch.cat(cropedImages, dim=0)
+    # print(cropedImages.shape)
+    crop = torch.squeeze(crop)
+    crop_mask = torch.squeeze(crop_mask)
+    crop = crop*255
+    crop_mask = crop_mask*255
+    print("MINIMASK: ", torch.unique(crop_mask))
+    crop_mask_img = torchvision.transforms.ToPILImage()(crop_mask)
     img = torchvision.transforms.ToPILImage('RGB')(crop)
     img.show()
-    return crop
+    crop_mask_img.show()
+
+    poseData = [cropedImages, cropedMask, coordInfo]
+    return poseData
 
 
 def save_checkpoint(state, filename, **kwargs):

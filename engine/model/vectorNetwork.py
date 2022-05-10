@@ -44,12 +44,12 @@ class Conv(torch.nn.Module):
 
 class DCVnet(torch.nn.Module):
     def __init__(
-        self, in_channels=3, out_channels=1, features=[64, 128, 256],
+        self, in_channels=3, out_channels=18, features=[64, 128, 256],
     ):
         super(DCVnet, self).__init__()
         self.downs = nn.ModuleList()
         self.ups = nn.ModuleList()
-        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.pool = nn.MaxPool2d(kernel_size=1, stride=1)
 
         for feature in features:
             self.downs.append(Conv(in_channels, feature))
@@ -58,7 +58,7 @@ class DCVnet(torch.nn.Module):
         for feature in reversed(features):
             self.ups.append(
                 nn.ConvTranspose2d(
-                    feature*2, feature, kernel_size=2, stride=2,
+                    feature*2, feature, kernel_size=2, stride=1,
                 )
             )
             self.ups.append(Conv(feature*2, feature))
@@ -93,7 +93,6 @@ class DCVnet(torch.nn.Module):
 
 def test():
     x = torch.randn((3, 1, 161, 161))
-    img =
     model = DCVnet(in_channels=1, out_channels=1)
     preds = model(x)
     assert preds.shape == x.shape
