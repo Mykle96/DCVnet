@@ -48,7 +48,7 @@ class VectorField:
             keypoints: list of keypoints of the object in the image
 
         return:
-            returns a tuple containg the image and the corresponding unit vector field in the same dimentions as the image
+            returns a tensor containing unit vector field corresponding to all images in a batch 
         """
 
         if type(keypoints) == list:
