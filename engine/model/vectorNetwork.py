@@ -12,6 +12,26 @@ import torchvision.transforms.functional as TF
 # Four layers deep, conv-max -> Dconv -> Dconv -> upconv
 
 
+class DoubleDilatedConv(torch.nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(DoubleDilatedConv, self).__init__()
+        self.DoubleDconv = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=9,
+                      stride=1, padding=1, dilation=2, bias=False),
+            nn.BatchNorm2d(out_channels),
+            nn.LeakyReLU(inplace=True),
+            nn.Dropout(p=0.2),
+            nn.Conv2d(out_channels, out_channels, kernel_size=9,
+                      stride=1, padding=1, dilation=2, bias=False),
+            nn.BatchNorm2d(out_channels),
+            nn.LeakyReLU(inplace=True),
+            nn.Dropout(p=0.2),
+        )
+
+    def forward(self, x):
+        return self.DoubleDconv(x)
+
+
 class DilatedConv(torch.nn.Module):
     def __init__(self, in_channels, out_channels):
         super(DilatedConv, self).__init__()
@@ -63,7 +83,7 @@ class DCVnet(torch.nn.Module):
             )
             self.ups.append(Conv(feature*2, feature))
 
-        self.bottleneck = DilatedConv(features[-1], features[-1]*2)
+        self.bottleneck = DoubleDilatedConv(features[-1], features[-1]*2)
         self.final_conv = nn.Conv2d(features[0], out_channels, kernel_size=1)
 
     def forward(self, x):
@@ -75,7 +95,7 @@ class DCVnet(torch.nn.Module):
             x = self.pool(x)
 
         x = self.bottleneck(x)
-        #x = self.bottleneck(x)
+
         skip_connections = skip_connections[::-1]
 
         for idx in range(0, len(self.ups), 2):

@@ -10,7 +10,7 @@ import warnings
 import time
 import matplotlib.pyplot as plt
 import cv2
-import math as m 
+import math as m
 import random
 from torch.utils.data import DataLoader
 
@@ -60,7 +60,7 @@ class Model:
             poseNetwork = PoseModel(device=self._device)
             self.poseNetwork = poseNetwork
 
-    def train(self, dataset, val_dataset=None, epochs=100, learning_rate=0.005, optimizer=SGD, loss_fn=None, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=SCALER):
+    def train(self, dataset, val_dataset=None, epochs=150, learning_rate=0.005, optimizer=SGD, loss_fn=None, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=SCALER):
 
         # Check if the dataset is converted or not, if not initiate, also check for any validation sets.
         assert dataset is not None, "No dataset was received, make sure to input a dataset"
@@ -113,8 +113,9 @@ class Model:
         # ----- TRAINING LOOP BEGINS -----
         print(f"Beginning traning with {self.model_name} network.")
         for epoch in tqdm(range(epochs)):
-            print("="*50)
+
             print(f'Epoch {epoch + 1} of {epochs}')
+            print("="*50)
 
             self._model.train()  # training step initiated
 
@@ -130,39 +131,37 @@ class Model:
                 targets = element[1].unsqueeze(1).to(
                     device=DEVICE, dtype=torch.float32)
 
-                poseData = crop_on_mask(data, targets)
-
                 self.show_prediction(data, targets)
                 if self.pose_estimation:
                     keypoints = element[2]
 
                     if self.verbose:
-                        print("Generating training data for keypoint localization")
                         print("="*50)
+                        print("Generating training data for keypoint localization")
+                        print("")
                     # generate pose data (VectorField)
+                    poseData = crop_pose_data(data, targets)
                     vectorfield = VectorField(targets, data, keypoints)
                     trainPoseData = vectorfield.calculate_vector_field(
                         poseData[1], poseData[0], keypoints, poseData[2])
-                    print("CROPED KEYPOINTS: ", trainPoseData[1])
+
                     if self.verbose:
                         vectorfield.visualize_gt_vectorfield(
                             trainPoseData[0], trainPoseData[1])
 
                 # forward
                 with torch.cuda.amp.autocast():
-                    posePred = self.poseNetwork.train(
-                        poseData, trainPoseData[0], trainPoseData[1])
-                    print(data.shape)
                     predictions = self._model(data)
-                    print(predictions.shape)
                     loss = loss_fn(predictions, targets)
-                    # dice
-                    # Crop if dice > 0.7
+                    if self.pose_estimation:
+                        # Train the pose network
+                        posePred = self.poseNetwork.train(
+                            poseData, trainPoseData[0], trainPoseData[1])
+
+                    # TODO Fix the loss function and plot
                     train_loss.append(loss.item())
                     total_loss = sum(loss for loss in train_loss)
                     avg_train_loss = total_loss/BATCH_SIZE
-                    # pose =  PoseModel(trainPoseData)
-                    #poseLoss = pose.train(oe)
 
                 # backward - calculating and updating the gradients of the network
                 optimizer.zero_grad()
@@ -266,6 +265,8 @@ class Model:
 
 
 # ----------------------------------------------------------------------------------------------
+#                                     POSE ESTIMATION MODEL
+# ----------------------------------------------------------------------------------------------
 
 
 class PoseModel:
@@ -309,80 +310,107 @@ class PoseModel:
         else:
             raise ValueError(
                 f"The optimizer chosen: {optimizer}, is either not added yet or invalid.. please use SGD or Adam")
+
+        # Send the model to the current device
         self.model.to(device=DEVICE)
         loss_fn = torch.nn.CrossEntropyLoss()
         #loss_fn = self.unit_loss_function()
-        # Starting training loop
+
+        # ---------- STARTING TRAINING LOOP ------------
         if self.verbose:
             print("-"*50)
             print("Starting the training of DCVnet")
+            print("-"*50)
+            print("")
 
         for index, image in tqdm(enumerate(images[0])):
-            print("INDEX: ", index)
             assert torch.is_tensor(image), f"The image is not a torch tensor!"
-            onevectorfield = torch.tensor(vectorfield[index])
-            self.model.train()
-            onevectorfield = torch.unsqueeze(onevectorfield, 0)
-            onevectorfield = onevectorfield.permute(0, 3, 1, 2)
-            #onevectorfield = torch.argmax(onevectorfield, dim=1)
-            onevectorfield = torch.squeeze(onevectorfield, 0)
+            self.model.train()  # Set model to training mode
+
+            # Convert one by one the vectorfield gt to Tensor and rearrange so that the channels come first, send to the right device
+            gtVf = torch.tensor(vectorfield[index]).permute(
+                2, 0, 1).to(device=DEVICE)
 
             with torch.cuda.amp.autocast():
                 predictions = self.model(image)
-                print("Keypointshape :", keypoints.shape)
-
-                visualize_vectorfield(predictions, keypoints[index])
-                loss = self.unit_loss_function(predictions, onevectorfield)
+                loss = self.huberloss_fn(predictions, gtVf)
                 losses.append(loss.item())
                 print("LOSSES: ", loss.item())
 
-            # backward - calculating and updating the gradients of the network
+        # backward - calculating and updating the gradients of the network
         optimizer.zero_grad()
         # Compute gradients for each parameter based on the current loss calculation
         scaler.scale(loss).backward()
         scaler.step(optimizer)
         scaler.update()
+
+        if self.verbose:
+            # Print the last vectorfield prediction with keypoints
+            visualize_vectorfield(predictions, keypoints[index])
+
         print("Total loss: ", losses)
         return losses
+
+    def huberloss_fn(self, prediction, target, delta=0.5):
+        """
+        Calculates the Huber Loss between the inputs
+
+        args:
+            prediction: The predicted vector field
+            target: The ground truth vector field
+            delta: the huber delta (Default: 0.5)
+
+        return:
+                loss: a scalar
+        """
+
+        # Check if this is more stable
+        loss_fn = torch.nn.HuberLoss(prediction, target)
+        print("TORCH HUBER: ", loss_fn)
+        huberDelta = delta
+        loss = torch.abs(target-prediction)
+        loss = torch.where(loss < huberDelta, 0.5 * loss ** 2,
+                           huberDelta * (loss - 0.5 * huberDelta))
+        return torch.sum(loss)
 
     def evaluate(self):
         raise NotImplementedError
 
     def save(self):
         raise NotImplementedError
-    
-    containerLocalCords = np.array([
-    
-		(0, 0, 0), #fbl
-        (0, 0, -3), #fbr
-        (0, 3, 0),  #ftl
-        (0, 3, -3), #ftr
-        (9, 0, 0), #bbl
-        (9, 0, -3), #bbr
-        (9, 3, 0), #btl
-        (9 , 3, -3), #btr
-        (4.5,1.5,-1.5) #Center 
-                     ])
-    
-    #Not sure about this array 
-    cameraIntrinsics = np.array([[572.4114, 0., 325.2611], [0., 573.57043, 242.04899], [0., 0., 1.]])
 
-    #Method to visualize keypoint prediction and rotation of container, Not implemented ye
+    containerLocalCords = np.array([
+
+        (0, 0, 0),  # fbl
+        (0, 0, -3),  # fbr
+        (0, 3, 0),  # ftl
+        (0, 3, -3),  # ftr
+        (9, 0, 0),  # bbl
+        (9, 0, -3),  # bbr
+        (9, 3, 0),  # btl
+        (9, 3, -3),  # btr
+        (4.5, 1.5, -1.5)  # Center
+    ])
+
+    # Not sure about this array
+    cameraIntrinsics = np.array(
+        [[572.4114, 0., 325.2611], [0., 573.57043, 242.04899], [0., 0., 1.]])
+
+    # Method to visualize keypoint prediction and rotation of container, Not implemented ye
     def show_prediction(self, vectorField, mask):
 
         success, R, t, predictions = self.predictPose(vectorField, mask)
-        
-        return R,t,predictions     
 
-        #Kjører pnp osv for å visualisere resultatet, tar inn ett bilde
-        
+        return R, t, predictions
 
-    def predictPose(self, vectorField, mask, maskThreshold = 0.9, localCords=containerLocalCords):
-    
+        # Kjører pnp osv for å visualisere resultatet, tar inn ett bilde
+
+    def predictPose(self, vectorField, mask, maskThreshold=0.9, localCords=containerLocalCords):
+
         if not(type(vectorField) == type(mask) == np.ndarray):
             vectorField = vectorField.toNumpy()
             mask = mask.toNumpy()
-        
+
         maskCoordinates = np.where(mask > maskThreshold)[1:3]
         if not(len(maskCoordinates)):
             print("No coordinates in mask with probability value larger than threshold")
@@ -394,23 +422,22 @@ class PoseModel:
 
         return True, self.pnp(predictions), predictions
 
-    def pnp(self, predictions, localCords = containerLocalCords, matrix = cameraIntrinsics, method = cv2.SOLVEPNP_ITERATIVE):
+    def pnp(self, predictions, localCords=containerLocalCords, matrix=cameraIntrinsics, method=cv2.SOLVEPNP_ITERATIVE):
 
         try:
             _, R_exp, tVec = cv2.solvePnP(localCords,
-                                predictions,
-								matrix,
-								np.zeros(shape=[8, 1], dtype='float64'),
-								flags=method)
+                                          predictions,
+                                          matrix,
+                                          np.zeros(
+                                              shape=[8, 1], dtype='float64'),
+                                          flags=method)
         except Exception as e:
             print(e)
-		    #set_trace()
+            # set_trace()
             print(predictions)
         return R_exp, tVec
 
-        
-
-    def ransacVoting(self, maskCoordinates, vectorField, numKeypoints=9, numHypotheses=5, ransacThreshold =.99):
+    def ransacVoting(self, maskCoordinates, vectorField, numKeypoints=9, numHypotheses=5, ransacThreshold=.99):
         hypDict = {}
         for i in range(numKeypoints):
             hypDict[i] = []
@@ -421,12 +448,12 @@ class PoseModel:
             v2 = vectorField[p2[0]][p2[1]]
 
             for i in range(numKeypoints):
-                m1 = v1[i * 2 + 1] / v1[i * 2] # get slopes
+                m1 = v1[i * 2 + 1] / v1[i * 2]  # get slopes
                 m2 = v2[i * 2 + 1] / v2[i * 2]
-                if not (m1 - m2): # lines must intersect
+                if not (m1 - m2):  # lines must intersect
                     print('slope cancel')
                     continue
-                b1 = p1[0] - p1[1] * m1 # get y intercepts
+                b1 = p1[0] - p1[1] * m1  # get y intercepts
                 b2 = p2[0] - p2[1] * m2
                 x = (b2 - b1) / (m1 - m2)
                 y = m1 * x + b1
@@ -436,7 +463,7 @@ class PoseModel:
                     xDiff = x - voter[1]
                     mag = m.sqrt(yDiff ** 2 + xDiff ** 2)
                     vec = vectorField[voter[0]][voter[1]][i * 2: i * 2 + 2]
-                    
+
                     if self.ransacVal(yDiff / mag, xDiff / mag, vec) > ransacThreshold:
                         weight += 1
                 hypDict[i].append(((y, x), weight))
@@ -445,11 +472,11 @@ class PoseModel:
                 maskCoordinates.append(p2)
         return hypDict
 
-    def ransacVal(y1, x1, v2): # dot product of unit vectors to find cos(theta difference)
+    def ransacVal(y1, x1, v2):  # dot product of unit vectors to find cos(theta difference)
         v2 = v2 / np.linalg.norm(v2)
         return y1 * v2[1] + x1 * v2[0]
 
-    def getMean(hypDict): # get weighted average of coordinates, weights list
+    def getMean(hypDict):  # get weighted average of coordinates, weights list
         meanDict = {}
         for key, hyps in hypDict.items():
             xMean = 0
@@ -467,12 +494,6 @@ class PoseModel:
     def dictToArray(hypDict):
         coordArray = np.zeros((len(hypDict.keys()), 2))
         for key, hyps in hypDict.items():
-            coordArray[key] = np.array([round(hyps[1]), round(hyps[0])]) # x, y format
+            coordArray[key] = np.array(
+                [round(hyps[1]), round(hyps[0])])  # x, y format
         return coordArray
-
-    def unit_loss_function(self, prediction, target):
-        huberDelta = 0.5
-        loss = torch.abs(target-prediction)
-        loss = torch.where(loss < huberDelta, 0.5 * loss ** 2,
-                           huberDelta * (loss - 0.5 * huberDelta))
-        return torch.sum(loss)

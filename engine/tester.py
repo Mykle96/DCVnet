@@ -51,10 +51,6 @@ loaded_test = DataLoader(test, batch_size=5, shuffle=True)
 # print(type(loaded_test))
 
 #test_f, test_l = next(iter(loaded_test))
-print("-"*40)
-print(test)
-print(len(test))
-
 
 unet = Model(classes=classes, pose_estimation=True)
 losses = unet.train(loaded_test, None, epochs=11)

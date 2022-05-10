@@ -9,6 +9,7 @@ import os
 import torchvision
 #from dataLoader import ShippingDataset
 from torch.utils.data import DataLoader
+import torchvision.transforms.functional as TVF
 import matplotlib.pyplot as plt
 #from DCVnet.engine.engine import Model
 
@@ -120,8 +121,24 @@ def check_accuracy(loader, model, device="cuda"):
 
 
 #----------------------#
-# DATASET UTILS
+# PIPELINE UTILS
 #----------------------#
+
+def crop_from_prediction(image, prediction, threshold=0.6):
+    """
+    Function for croping an images on the predicted masks. Crops the image at a threshold to
+    eliminate outliers in the prediction.
+
+    args:
+        image: Tensor of images
+        mask: Tensor of masks
+        threshold: threshold for filtering weak predicitons (Default: 0.6)
+
+    return:
+        cropedImage: a croped image by using the predicted mask 
+
+    """
+    pass
 
 
 #----------------------#
@@ -198,62 +215,74 @@ def visualize_vectorfield(field, keypoint, indx=-1):
 # TRAINING UTILS
 #----------------------#
 
+def visualize_croped_data(crop_image, crop_mask):
+    # function for visualizing the croped image and mask
 
-def crop_on_mask(image, mask, threshold=0.6):
-    # Crop the image around the predicted mask
-    # Image: Tensor
-    # Mask: Tensor (?)
-
-    # rename to poseDataGenerator
-    # Make a seperate function for visualizing the croped image and mask
-
-    # TODO Optmize this function
-    print(image.shape, type(image))
-    print(mask.shape, type(mask))
-    cropedImages = []
-    cropedMask = []
-    coordInfo = []
-    for i in range(len(image)):
-        coords = np.where(mask[i] >= threshold)[1:3]
-        top_y = min(coords[0]) - 10
-        top_x = min(coords[1]) - 10
-        height = max(coords[0])-top_y + 20
-        width = max(coords[1]) - top_x + 20
-
-        info = [top_x, top_y, height, width]
-        coordInfo.append(info)
-
-        if not height % 2 == 0:
-            height += 1
-        if not width % 2 == 0:
-            width += 1
-
-        crop = torchvision.transforms.functional.crop(
-            image[i], top_y, top_x, height, width)
-
-        crop_mask = torchvision.transforms.functional.crop(
-            mask[i], top_y, top_x, height, width)
-
-        crop = torch.unsqueeze(crop, 0)
-        crop_mask = torch.unsqueeze(crop_mask, 0)
-        cropedImages.append(crop)
-        cropedMask.append(crop_mask)
-        print("Crop: ", crop.shape)
-    # NB! Inverts the picutre colors (Might need to fix this)
-    # print(cropedImages)
-    #cropedImages = torch.cat(cropedImages, dim=0)
-    # print(cropedImages.shape)
-    crop = torch.squeeze(crop)
+    crop = torch.squeeze(crop_image)
     crop_mask = torch.squeeze(crop_mask)
     crop = crop*255
     crop_mask = crop_mask*255
-    print("MINIMASK: ", torch.unique(crop_mask))
     crop_mask_img = torchvision.transforms.ToPILImage()(crop_mask)
     img = torchvision.transforms.ToPILImage('RGB')(crop)
     img.show()
     crop_mask_img.show()
 
+
+def crop_pose_data(image, mask, threshold=0.6):
+    """
+    Function for croping the training (and validation) images and masks. Crops the mask at a threshold to
+    eliminate outliers.
+
+    args:
+        image: Tensor of images - [batch,channels,h,w]
+        mask: Tensor of masks - [h,w]
+        threshold: threshold for filtering weak predicitons (Default: 0.6)
+
+    return:
+        poseData: list of images, masks and respective coordinfo.
+
+    """
+    # initialize variables
+    cropedImages = []
+    cropedMask = []
+    coordInfo = []
+
+    for i in range(len(image)):
+        # Fetch coordinates of mask wiht a threshold
+        coords = np.where(mask[i] >= threshold)[1:3]
+        # Setting top coordinate of the crop, the largest corner of the mask
+        top_y = (min(coords[0]) - 10) if min(coords[0]) > 10 else 0
+        top_x = min(coords[1]) - 10 if min(coords[1]) > 10 else 0
+        # setting the width and height accrording to the biggest corner of the mask
+        height = max(coords[0])-top_y + 20 if max(coords[0])-top_y < 580 else 0
+        width = max(coords[1]) - top_x + \
+            20 if max(coords[1]) - top_x < 580 else 0
+
+        # make sure the dimentions are even numbers for the neural network
+        if not height % 2 == 0:
+            height += 1
+        if not width % 2 == 0:
+            width += 1
+
+        # Add the new metrics to a index dependant list
+        info = [top_x, top_y, height, width]
+        coordInfo.append(info)
+
+        # Crop the image and mask on the given point and dimentions
+        crop, crop_mask = TVF.crop(
+            image[i], top_y, top_x, height, width), TVF.crop(
+            mask[i], top_y, top_x, height, width)
+
+        # unsqueeze to add batch dimention and append the cropped images and masks
+        cropedImages.append(torch.unsqueeze(
+            crop, 0))
+        cropedMask.append(torch.unsqueeze(crop_mask, 0))
+
+    # Visualize the last image and mask
+    visualize_croped_data(crop, crop_mask)
+    # List of lists
     poseData = [cropedImages, cropedMask, coordInfo]
+
     return poseData
 
 
