@@ -141,7 +141,7 @@ class VectorField:
             vectors[pixel[0]][pixel[1]][index*2+1] = yDiff/magnitude
             vectors[pixel[0]][pixel[1]][index*2] = xDiff/magnitude
 
-    def visualize_gt_vectorfield(self, field, keypoint=None, indx=-1, imgIndx=0):
+    def visualize_gt_vectorfield(self, field, keypoint, indx=5, imgIndx=-1, oneImage=False):
         '''
         Function to visualize vector field towards a certain keypoint, and plotting all keypoint
 
@@ -170,67 +170,77 @@ class VectorField:
         all_keypoints = keypoint[imgIndx]
 
         dimensions = [field.shape[0], field.shape[1]]  # y,x
-
-        newImg = np.zeros((dimensions[0], dimensions[1], 3))
         numCords = int(field.shape[2]/2)
 
-        if(indx == -1):
-            indx = numCords-1
-        elif(indx > numCords or indx < 0):
-            raise ValueError(
-                f"Keypoint value = {indx} needs to be in the interval [1, number of keypoints = {numCords}]")
+        if not(oneImage):
+            rows = m.ceil(m.sqrt(numCords))
+            cols = m.ceil(m.sqrt(numCords))
+            figg, ax = plt.subplots(
+                rows, cols, figsize=(10, 10))  # ax[y,x] i plottet
+            ax = ax.flatten()
+            numImages = numCords
+        else:
+            numImages = 1
+            if(indx == -1):
+                indx = numCords-1
+            elif(indx > numCords or indx < 0):
+                raise ValueError(
+                    f"Keypoint value = {indx} needs to be in the interval [1, number of keypoints = {numCords}]")
 
-        for i in range(dimensions[0]):
-            for j in range(dimensions[1]):
-                if(field[i][j] != np.zeros(2*numCords)).all():
+        for index in range(numImages):
+            newImg = np.zeros((dimensions[0], dimensions[1], 3))
+            if(oneImage):
+                index = indx
+            for i in range(dimensions[0]):
+                for j in range(dimensions[1]):
+                    if(field[i][j] != np.zeros(2*numCords)).all():
 
-                    cy = j
-                    cx = i
+                        cy = j
+                        cx = i
+                        x = cx + 2*field[i][j][2*index]
+                        y = cy + 2*field[i][j][2*index+1]
 
-                    x = cx + 2*field[i][j][2*indx]
-                    y = cy + 2*field[i][j][2*indx+1]
-
-                    if(cx-x) < 0:
-                        # (2) og (3)
-                        angle = m.atan((cy-y)/(cx-x))+m.pi
-                    elif(cy-y) < 0:
-                        # (4)
-                        if(cx == x):
-                            # 270 degrees
-                            angle = 3/2*m.pi
+                        if(cx-x) < 0:
+                            # (2) og (3)
+                            angle = m.atan((cy-y)/(cx-x))+m.pi
+                        elif(cy-y) < 0:
+                            # (4)
+                            if(cx == x):
+                                # 270 degrees
+                                angle = 3/2*m.pi
+                            else:
+                                angle = m.atan((cy-y)/(cx-x))+2*m.pi
                         else:
-                            angle = m.atan((cy-y)/(cx-x))+2*m.pi
-                    else:
-                        # (1)
-                        if(cx == x):
-                            angle = m.pi/2
-                        else:
-                            angle = m.atan((cy-y)/(cx-x))
+                            # (1)
+                            if(cx == x):
+                                angle = m.pi/2
+                            else:
+                                angle = m.atan((cy-y)/(cx-x))
 
-                    h = angle/(2*m.pi)
-                    rgb = colorsys.hsv_to_rgb(h, 1.0, 1.0)
-                    newImg[i][j] = rgb
+                        h = angle/(2*m.pi)
+                        rgb = colorsys.hsv_to_rgb(h, 1.0, 1.0)
+                        newImg[i][j] = rgb
 
-        if keypoint is not None:
-            for i in range(len(all_keypoints)):
+            if not(oneImage):
+                ax[index].imshow(newImg)
 
-                if i == indx:
+            for k in range(len(all_keypoints)):
+                if k == index:
                     marker = '+'
+                    color = 'white'
                 else:
                     marker = '.'
+                    color = 'white'
 
-                plt.plot(dimensions[1]*all_keypoints[i][0], dimensions[0]-all_keypoints[i][1] *
-                         dimensions[0], marker=marker, color='white')
-            plt.title(
-                f"GT Vector field for keypoint")
+                if not(oneImage):
+                    ax[index].plot(dimensions[1]*all_keypoints[k][0], dimensions[0]-all_keypoints[k][1] *
+                                   dimensions[0], marker=marker, color=color)
+                else:
+                    plt.plot(dimensions[1]*all_keypoints[k][0], dimensions[0]-all_keypoints[k][1] *
+                             dimensions[0], marker=marker, color='white')
+        if(oneImage):
             plt.imshow(newImg)
-            plt.show()
-        else:
-            print("No keypoints were recieved --> Keypoints are not plotted")
-            plt.title(
-                f"GT Vector field for keypoint")
-            plt.imshow(newImg)
-            plt.show()
+        plt.show()
 
     def update_keypoint(self, keypoints, coordsInfo):
         updated_keypoints = []

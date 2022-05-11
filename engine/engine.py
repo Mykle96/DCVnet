@@ -344,8 +344,7 @@ class PoseModel:
                 loss = self.huberloss_fn(predictions, gtVf)
                 losses.append(loss.item())
                 print("LOSSES: ", loss.item())
-                visualize_vectorfield(predictions, keypoints[index])
-                raise ValueError
+
         # backward - calculating and updating the gradients of the network
         optimizer.zero_grad()
         # Compute gradients for each parameter based on the current loss calculation
