@@ -131,15 +131,11 @@ class Model:
                     device=DEVICE, dtype=torch.float32)
 
                 # forward
-                """
+
                 with torch.cuda.amp.autocast():
                     predictions = self._model(data)
                     loss = loss_fn(predictions, targets)
                     dice = dice_score(predictions, targets)
-                    print("AVERAGE DICE: ", np.sum(dice)/targets.shape[0])
-                    # TODO Fix the loss function and plot
-                    train_loss.append(loss.item())
-                    total_loss = sum(loss for loss in train_loss)
 
                 # backward - calculating and updating the gradients of the network
                 optimizer.zero_grad()
@@ -150,7 +146,7 @@ class Model:
 
                 avg_train_loss = total_loss/predictions.shape[0]
                 running_loss += loss.item()*predictions.shape[0]
-                """
+
                 # TRAINING STEP BEGINS FOR POSE ESTIMATION
                 if self.pose_estimation:
                     keypoints = element[2]
@@ -362,12 +358,12 @@ class PoseModel:
                     loss = self.huberloss_fn(predictions, gtVf)
                     losses.append(loss.item())
 
-            # backward - calculating and updating the gradients of the network
-            optimizer.zero_grad()
-            # Compute gradients for each parameter based on the current loss calculation
-            scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
+                    # backward - calculating and updating the gradients of the network
+                    optimizer.zero_grad()
+                    # Compute gradients for each parameter based on the current loss calculation
+                    scaler.scale(loss).backward()
+                    scaler.step(optimizer)
+                    scaler.update()
 
             if self.verbose:
                 # Print the last vectorfield prediction with keypoints
@@ -430,11 +426,7 @@ class PoseModel:
 
 
 # Method to visualize keypoint prediction and rotation of container, Not implemented ye
+
+
     def show_prediction(self):
         raise NotImplementedError
-
-
-
-    
-
-    
