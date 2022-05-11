@@ -1,5 +1,6 @@
 from turtle import Vec2D
 import torch
+from torch import Tensor
 from cv2 import cv2
 import numpy as np
 import math as m
@@ -8,15 +9,15 @@ import sys
 import random
 import os
 import torchvision
-#from dataLoader import ShippingDataset
+# from dataLoader import ShippingDataset
 from torch.utils.data import DataLoader
 import torchvision.transforms.functional as TVF
 import matplotlib.pyplot as plt
-#from DCVnet.engine.engine import Model
+# from DCVnet.engine.engine import Model
 
 
 """
-Utility file containing a lot of functions used across the system
+Utility file containing a lot of funct ions used across the system
 """
 
 #----------------------#
@@ -29,43 +30,60 @@ Utility file containing a lot of functions used across the system
 #----------------------#
 
 
-def intersection_over_union(prediction, target, classes, threshold=0.5, **kwargs):
+def dice_score(prediction: Tensor, target: Tensor, classes=None, threshold=0.5, epsilon=1e-6, **kwargs):
     """
     Function for calculating the overlapping area of intersection. The closer to one the greater the overlap and
     subsequently the better the accuracy.
 
     args:
-        prediction - the prediction mask given from the model
-        target - the ground truth mask
+        prediction - the prediction masks given from the model - Tensor [BATCH, channels, H, W]
+        target - the ground truth mask - Tensor [BATCH, channels, H, W]
         classes - the number of classes in the image
         threshold - The minimum accepted threshold of overlap (default at 0.5)
 
     return:
         Returns a list of float32s between the threshold and 1 (i.e default is values between [0.5, 1])
     """
-    ious = []
-    prediction = prediction.view(-1)
-    target = target.view(-1)
 
-    for cls in range(1, classes):  # Exluding the background (0)
-        predictionInds = prediction == cls
-        targetInds = target == cls
-        intersection = (predictionInds[targetInds]).long().sum().data.cpu()[0]
-        union = predictionInds.long().sum().data.cpu(
-        )[0] + targetInds.long().sum().data.cpu()[0] - intersection
-        if union == 0:
-            print("No ground truth was found ---> removing the test from the evaluation")
-            ious.append(float('nan'))
+    assert prediction.size() == target.size(
+    ), "The prediction and target input do not have matching sizes! "
+    dice = []
+    # covnert predictions to probabilities using sigmoid
+    prediction = torch.sigmoid(prediction)
+
+    for i in range(prediction.shape[0]):  # Exluding the background (0)
+        # Remove batch and channel dimentions, BATCH x 1 x H X W =>
+        pred = prediction[i].squeeze(1
+                                     ).numpy().astype(int) if prediction[i].dim() > 3 else prediction[i].numpy().astype(int)
+
+        mask = target[i].squeeze(1).numpy(
+        ).astype(int) if target[i].dim() > 3 else target[i].numpy().astype(int)
+        # visualize_croped_data(pred, mask)
+        intersection = (pred & mask).sum((1, 2))
+
+        union = (pred | mask).sum((1, 2))
+
+        diceScore = float((intersection+epsilon))/float((union + epsilon))
+
+        if diceScore < threshold:
+            print("Iou score was below the predetermined threshold of {}, and was thus purged from the set".format(
+                threshold))
+            dice.append(float('nan'))
+
         else:
-            iou = float(intersection)/float(max(union, 1))
-            if iou < threshold:
-                print("Iou score was below the predetermined threshold of {}, and was thus purged from the set".format(
-                    threshold))
-            else:
-                print(f"Dice Score: {iou}")
-                ious.append(iou)
+            print(f"Dice Score for prediction {i}: {diceScore}")
+            dice.append(diceScore)
+    return np.array(dice)
 
-    return np.array(ious)
+
+def plot_loss(train_loss=None, val_loss=None, epochs=None):
+    # takes in two lists and the number of epochs that have runned
+    assert len(train_loss) and len(val_loss) is not 0
+    fig = plt.figure()
+    loss = fig.add_subplot(121, title="losses")
+    loss.plot(epochs, train_loss, 'bo-', label='train loss')
+    loss.plot(epochs, val_loss, 'ro-', label='validation loss')
+    plt.plot(loss)
 
 
 def validation_loss():
@@ -81,14 +99,6 @@ def average_loss():
 
 
 def total_loss():
-    raise NotImplementedError("Not yet implemented")
-
-
-def dice_score(prediction, target, **kwargs):
-    """
-    Function for calculating the dice score (Jaccard index)
-    """
-
     raise NotImplementedError("Not yet implemented")
 
 
@@ -136,7 +146,7 @@ def crop_from_prediction(image, prediction, threshold=0.6):
         threshold: threshold for filtering weak predicitons (Default: 0.6)
 
     return:
-        cropedImage: a croped image by using the predicted mask 
+        cropedImage: a croped image by using the predicted mask
 
     """
     pass
@@ -265,7 +275,11 @@ def dictToArray(hypDict):
 #----------------------#
 
 
+<<<<<<< HEAD
 def visualize_vectorfield(field, keypoint, indx=-1, oneImage = True):
+=======
+def visualize_vectorfield(field, keypoint, indx=5, oneImage=True):
+>>>>>>> 60030453903df5ee269ff6d9db124cb2b0445023
     '''
     Function to visualize vector field towards a certain keypoint, and plotting all keypoint in subplot
 
@@ -279,12 +293,11 @@ def visualize_vectorfield(field, keypoint, indx=-1, oneImage = True):
     '''
 
     if not keypoint == None:
-        
+
         # Transforms field to numpy array and to the shape (dimY, dimX, 2*num_keypoints)
         if not isinstance(field, np.ndarray):
             field = field.permute(0, 2, 3, 1).detach().squeeze().numpy()
         keypoint = keypoint.numpy()
-        
 
         dimentions = [field.shape[0], field.shape[1]]  # y,x
         numCords = int(field.shape[2]/2)
@@ -292,17 +305,17 @@ def visualize_vectorfield(field, keypoint, indx=-1, oneImage = True):
         if not(oneImage):
             rows = m.ceil(m.sqrt(numCords))
             cols = m.ceil(m.sqrt(numCords))
-            fig, ax= plt.subplots(rows,cols,figsize=(10,10)) #ax[y,x] i plottet
+            fig, ax = plt.subplots(
+                rows, cols, figsize=(10, 10))  # ax[y,x] i plottet
             ax = ax.flatten()
             numImages = numCords
         else:
             numImages = 1
-            if(indx==-1):
+            if(indx == -1):
                 indx = numCords-1
-            elif(indx>numCords or indx<0):
+            elif(indx > numCords or indx < 0):
                 raise ValueError(
                     f"Keypoint value = {indx} needs to be in the interval [1, number of keypoints = {numCords}]")
-        
 
         for index in range(numImages):
             newImg = np.zeros((dimentions[0], dimentions[1], 3))
@@ -312,7 +325,7 @@ def visualize_vectorfield(field, keypoint, indx=-1, oneImage = True):
             for i in range(dimentions[0]):
                 for j in range(dimentions[1]):
                     if(field[i][j] != np.zeros(2*numCords)).all():
-                        
+
                         cy = j
                         cx = i
                         x = cx + 2*field[i][j][2*index]
@@ -338,8 +351,7 @@ def visualize_vectorfield(field, keypoint, indx=-1, oneImage = True):
                         h = angle/(2*m.pi)
                         rgb = colorsys.hsv_to_rgb(h, 1.0, 1.0)
                         newImg[i][j] = rgb
-                    
-            
+
             if not(oneImage):
                 ax[index].imshow(newImg)
 
@@ -353,18 +365,17 @@ def visualize_vectorfield(field, keypoint, indx=-1, oneImage = True):
 
                 if not(oneImage):
                     ax[index].plot(dimentions[1]*keypoint[k][0], dimentions[0]-keypoint[k][1] *
-                            dimentions[0], marker=marker, color=color)
+                                   dimentions[0], marker=marker, color=color)
                 else:
                     plt.plot(dimentions[1]*keypoint[k][0], dimentions[0]-keypoint[k][1] *
-                            dimentions[0], marker=marker, color=color)
-                
-        if(oneImage):    
+                             dimentions[0], marker=marker, color=color)
+
+        if(oneImage):
             plt.imshow(newImg)
-        
+
         plt.show()
     else:
         pass
-    
 
 
 #----------------------#
@@ -374,12 +385,13 @@ def visualize_vectorfield(field, keypoint, indx=-1, oneImage = True):
 def visualize_croped_data(crop_image, crop_mask):
     # function for visualizing the croped image and mask
 
-    crop = torch.squeeze(crop_image)
-    crop_mask = torch.squeeze(crop_mask)
+    crop = torch.squeeze(crop_image) if crop_image.dim() > 3 else crop_image
+    crop_mask = torch.squeeze(crop_mask) if crop_mask.dim() > 2 else crop_mask
     crop = crop*255
     crop_mask = crop_mask*255
     crop_mask_img = torchvision.transforms.ToPILImage()(crop_mask)
-    img = torchvision.transforms.ToPILImage('RGB')(crop)
+    img = torchvision.transforms.ToPILImage()(
+        crop) if crop.dim() == 3 else torchvision.transforms.ToPILImage()(crop)
     img.show()
     crop_mask_img.show()
 
