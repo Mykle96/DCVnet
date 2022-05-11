@@ -131,6 +131,7 @@ class Model:
                     device=DEVICE, dtype=torch.float32)
 
                 # forward
+                """
                 with torch.cuda.amp.autocast():
                     predictions = self._model(data)
                     loss = loss_fn(predictions, targets)
@@ -149,7 +150,7 @@ class Model:
 
                 avg_train_loss = total_loss/predictions.shape[0]
                 running_loss += loss.item()*predictions.shape[0]
-
+                """
                 # TRAINING STEP BEGINS FOR POSE ESTIMATION
                 if self.pose_estimation:
                     keypoints = element[2]
@@ -354,13 +355,12 @@ class PoseModel:
 
                 # Convert one by one the vectorfield gt to Tensor and rearrange so that the channels come first, send to the right device
                 gtVf = torch.tensor(vectorfield[index]).permute(
-                    2, 0, 1).to(device=DEVICE)
+                    2, 0, 1).to(device=DEVICE, dtype=torch.float32)
 
                 with torch.cuda.amp.autocast():
                     predictions = self.model(image)
                     loss = self.huberloss_fn(predictions, gtVf)
                     losses.append(loss.item())
-                    print("LOSSES: ", loss.item())
 
             # backward - calculating and updating the gradients of the network
             optimizer.zero_grad()
@@ -388,10 +388,10 @@ class PoseModel:
 
                     # Convert one by one the vectorfield gt to Tensor and rearrange so that the channels come first, send to the right device
                     gtVf = torch.tensor(vectorfield[index]).permute(
-                        2, 0, 1).to(device=DEVICE)
+                        2, 0, 1).to(device=DEVICE, dtype=torch.float32)
                     # TODO Might need fixing
 
-                    predictions = self.model(image)
+                    predictions = torch.sigmoid(self.model(image))
                     loss = self.huberloss_fn(predictions, gtVf)
                     losses.append(loss.item())
         return losses
@@ -411,6 +411,7 @@ class PoseModel:
 
         # Check if this is more stable
         loss_fn = torch.nn.HuberLoss(delta=0.5)
+        target, prediction = target.squeeze(), prediction.squeeze()  # Remove batch dimention
         loss = loss_fn(prediction, target)
         #print("TORCH-HUBER: ", loss.item())
         #huberDelta = delta

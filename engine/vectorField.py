@@ -90,9 +90,9 @@ class VectorField:
             for i in tqdm(range(numImages)):
                 # generate local variables
 
-                image = images[i].permute(0, 2, 3, 1).numpy()
+                image = images[i].permute(0, 2, 3, 1).cpu().numpy()
                 image = np.squeeze(image, axis=0)
-                target = targets[i].permute(0, 2, 3, 1).numpy()
+                target = targets[i].permute(0, 2, 3, 1).cpu().numpy()
                 target = np.squeeze(target, axis=0)
 
                 numKeypoints = new_keypoints[i].shape[0]

@@ -53,11 +53,11 @@ def dice_score(prediction: Tensor, target: Tensor, classes=None, threshold=0.5, 
 
     for i in range(prediction.shape[0]):  # Exluding the background (0)
         # Remove batch and channel dimentions, BATCH x 1 x H X W =>
-        pred = prediction[i].squeeze(1
-                                     ).numpy().astype(int) if prediction[i].dim() > 3 else prediction[i].numpy().astype(int)
+        pred = prediction[i].detach().squeeze(1
+                                              ).cpu().numpy().astype(int) if prediction[i].dim() > 3 else prediction[i].detach().cpu().numpy().astype(int)
 
-        mask = target[i].squeeze(1).numpy(
-        ).astype(int) if target[i].dim() > 3 else target[i].numpy().astype(int)
+        mask = target[i].detach().squeeze(1).cpu().numpy(
+        ).astype(int) if target[i].dim() > 3 else target[i].detach().cpu().numpy().astype(int)
         # visualize_croped_data(pred, mask)
         intersection = (pred & mask).sum((1, 2))
 
@@ -68,10 +68,10 @@ def dice_score(prediction: Tensor, target: Tensor, classes=None, threshold=0.5, 
         if diceScore < threshold:
             print("Iou score was below the predetermined threshold of {}, and was thus purged from the set".format(
                 threshold))
-            dice.append(float('nan'))
+            dice.append(0.0)
 
         else:
-            print(f"Dice Score for prediction {i}: {diceScore}")
+            #print(f"Dice Score for prediction {i}: {diceScore}")
             dice.append(diceScore)
     return np.array(dice)
 
@@ -174,8 +174,8 @@ def visualize_vectorfield(field, keypoint, indx=5, oneImage=True):
 
         # Transforms field to numpy array and to the shape (dimY, dimX, 2*num_keypoints)
         if not isinstance(field, np.ndarray):
-            field = field.permute(0, 2, 3, 1).detach().squeeze().numpy()
-        keypoint = keypoint.numpy()
+            field = field.permute(0, 2, 3, 1).detach().squeeze().cpu().numpy()
+        keypoint = keypoint.cpu().numpy()
 
         dimentions = [field.shape[0], field.shape[1]]  # y,x
         numCords = int(field.shape[2]/2)
@@ -295,14 +295,17 @@ def crop_pose_data(image, mask, threshold=0.6):
 
     for i in range(len(image)):
         # Fetch coordinates of mask wiht a threshold
-        coords = np.where(mask[i] >= threshold)[1:3]
+        coords = torch.where(mask[i] >= threshold)[1:3]
+        print("COORDS: ", coords)
         # Setting top coordinate of the crop, the largest corner of the mask
-        top_y = (min(coords[0]) - 10) if min(coords[0]) > 10 else 0
+        top_y = (min(coords[0]) - 10) if min(coords[0]
+                                             ) > 10 else 0
         top_x = min(coords[1]) - 10 if min(coords[1]) > 10 else 0
         # setting the width and height accrording to the biggest corner of the mask
-        height = max(coords[0])-top_y + 20 if max(coords[0])-top_y < 580 else 0
+        height = max(coords[0])-top_y + 20 if max(coords[0]
+                                                  )-top_y < 580 else max(coords[0])-top_y
         width = max(coords[1]) - top_x + \
-            20 if max(coords[1]) - top_x < 580 else 0
+            20 if max(coords[1]) - top_x < 580 else max(coords[1]) - top_x
 
         # make sure the dimentions are even numbers for the neural network
         if not height % 2 == 0:
