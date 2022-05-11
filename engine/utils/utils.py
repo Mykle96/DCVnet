@@ -1,4 +1,5 @@
 import torch
+from torch import Tensor
 from cv2 import cv2
 import numpy as np
 import math as m
@@ -7,15 +8,15 @@ import sys
 import random
 import os
 import torchvision
-#from dataLoader import ShippingDataset
+# from dataLoader import ShippingDataset
 from torch.utils.data import DataLoader
 import torchvision.transforms.functional as TVF
 import matplotlib.pyplot as plt
-#from DCVnet.engine.engine import Model
+# from DCVnet.engine.engine import Model
 
 
 """
-Utility file containing a lot of functions used across the system
+Utility file containing a lot of funct ions used across the system
 """
 
 #----------------------#
@@ -28,43 +29,48 @@ Utility file containing a lot of functions used across the system
 #----------------------#
 
 
-def intersection_over_union(prediction, target, classes, threshold=0.5, **kwargs):
+def intersection_over_union(prediction: Tensor, target: Tensor, classes=None, threshold=0.5, epsilon=1e-6, **kwargs):
     """
     Function for calculating the overlapping area of intersection. The closer to one the greater the overlap and
     subsequently the better the accuracy.
 
     args:
-        prediction - the prediction mask given from the model
-        target - the ground truth mask
+        prediction - the prediction masks given from the model - Tensor [BATCH, channels, H, W]
+        target - the ground truth mask - Tensor [BATCH, channels, H, W]
         classes - the number of classes in the image
         threshold - The minimum accepted threshold of overlap (default at 0.5)
 
     return:
         Returns a list of float32s between the threshold and 1 (i.e default is values between [0.5, 1])
     """
-    ious = []
-    prediction = prediction.view(-1)
-    target = target.view(-1)
 
-    for cls in range(1, classes):  # Exluding the background (0)
-        predictionInds = prediction == cls
-        targetInds = target == cls
-        intersection = (predictionInds[targetInds]).long().sum().data.cpu()[0]
-        union = predictionInds.long().sum().data.cpu(
-        )[0] + targetInds.long().sum().data.cpu()[0] - intersection
-        if union == 0:
-            print("No ground truth was found ---> removing the test from the evaluation")
-            ious.append(float('nan'))
+    assert prediction.size() == target.size(
+    ), "The prediction and target input do not have matching sizes! "
+    dice = []
+
+    for i in range(prediction.shape[0]):  # Exluding the background (0)
+        # Remove batch and channel dimentions, BATCH x 1 x H X W =>
+        pred = prediction[i].squeeze(1
+                                     ).numpy().astype(int) if prediction[i].dim() > 3 else prediction[i].numpy().astype(int)
+
+        mask = target[i].squeeze(1).numpy(
+        ).astype(int) if target[i].dim() > 3 else target[i].numpy().astype(int)
+        # visualize_croped_data(pred, mask)
+        intersection = (pred & mask).sum((1, 2))
+
+        union = (pred | mask).sum((1, 2))
+
+        diceScore = float((intersection+epsilon))/float((union + epsilon))
+
+        if diceScore < threshold:
+            print("Iou score was below the predetermined threshold of {}, and was thus purged from the set".format(
+                threshold))
+            dice.append(float('nan'))
+
         else:
-            iou = float(intersection)/float(max(union, 1))
-            if iou < threshold:
-                print("Iou score was below the predetermined threshold of {}, and was thus purged from the set".format(
-                    threshold))
-            else:
-                print(f"Dice Score: {iou}")
-                ious.append(iou)
-
-    return np.array(ious)
+            print(f"Dice Score for prediction {i}: {diceScore}")
+            dice.append(diceScore)
+    return np.array(dice)
 
 
 def validation_loss():
@@ -135,7 +141,7 @@ def crop_from_prediction(image, prediction, threshold=0.6):
         threshold: threshold for filtering weak predicitons (Default: 0.6)
 
     return:
-        cropedImage: a croped image by using the predicted mask 
+        cropedImage: a croped image by using the predicted mask
 
     """
     pass
@@ -161,9 +167,9 @@ def visualize_vectorfield(field, keypoint, indx=-1):
     print("Utils fieldshape :", type(field))
     print("Utils fieldshape :", field.shape)
 
-    #field = field[imgInt]
-    #all_keypoints = keypoint
-    #keypoint = keypoint[indx]
+    # field = field[imgInt]
+    # all_keypoints = keypoint
+    # keypoint = keypoint[indx]
     dimentions = [field.shape[0], field.shape[1]]  # y,x
     print("DIMENTIONS: ", dimentions)
 
@@ -218,12 +224,13 @@ def visualize_vectorfield(field, keypoint, indx=-1):
 def visualize_croped_data(crop_image, crop_mask):
     # function for visualizing the croped image and mask
 
-    crop = torch.squeeze(crop_image)
-    crop_mask = torch.squeeze(crop_mask)
+    crop = torch.squeeze(crop_image) if crop_image.dim() > 3 else crop_image
+    crop_mask = torch.squeeze(crop_mask) if crop_mask.dim() > 2 else crop_mask
     crop = crop*255
     crop_mask = crop_mask*255
     crop_mask_img = torchvision.transforms.ToPILImage()(crop_mask)
-    img = torchvision.transforms.ToPILImage('RGB')(crop)
+    img = torchvision.transforms.ToPILImage()(
+        crop) if crop.dim() == 3 else torchvision.transforms.ToPILImage()(crop)
     img.show()
     crop_mask_img.show()
 

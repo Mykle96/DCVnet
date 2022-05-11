@@ -71,12 +71,7 @@ class Model:
             val_dataset = DataLoader(val_dataset, shuffle=True)
 
         DEVICE = self._device
-        BATCH_SIZE = len(dataset)
         # initate training parameters and variables
-        train_loss = []
-        if val_dataset is not None:
-            val_loss = []
-
         # Select optimizer and tune parameters
         assert type(
             optimizer) == str, f"Error catched for the optimizer parameter! Expected the input to be of type string, but got {type(optimizer)}."
@@ -98,6 +93,7 @@ class Model:
         if loss_fn is None:
             if self.numClasses > 1:
                 loss_fn = torch.nn.CrossEntropyLoss()
+                # If Cross entropy is used, add Sigmoid on the pred before loss is calculated
             if self.numClasses == 1:
                 loss_fn = torch.nn.BCEWithLogitsLoss()
         else:
@@ -107,7 +103,8 @@ class Model:
 
         # Set model to the correct device
         self._model.to(device=DEVICE)
-        losses = []
+        train_loss = []
+        epoch_losses = []
 
         # TODO make a check on segmentation and if True, make another traning loop for BB
         # ----- TRAINING LOOP BEGINS -----
@@ -117,6 +114,7 @@ class Model:
             print(f'Epoch {epoch + 1} of {epochs}')
             print("="*50)
 
+            running_loss = 0.0
             self._model.train()  # training step initiated
 
             if self.verbose:
@@ -147,12 +145,14 @@ class Model:
 
                     if self.verbose:
                         vectorfield.visualize_gt_vectorfield(
-                            trainPoseData[0], trainPoseData[1])
+                            trainPoseData[0], trainPoseData[1], imgIndx=-1)
 
                 # forward
                 with torch.cuda.amp.autocast():
                     predictions = self._model(data)
                     loss = loss_fn(predictions, targets)
+                    dice = intersection_over_union(targets, targets)
+                    print("AVERAGE DICE: ", np.sum(dice)/targets.shape[0])
                     if self.pose_estimation:
                         # Train the pose network
                         posePred = self.poseNetwork.train(
@@ -161,7 +161,6 @@ class Model:
                     # TODO Fix the loss function and plot
                     train_loss.append(loss.item())
                     total_loss = sum(loss for loss in train_loss)
-                    avg_train_loss = total_loss/BATCH_SIZE
 
                 # backward - calculating and updating the gradients of the network
                 optimizer.zero_grad()
@@ -169,17 +168,26 @@ class Model:
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
                 scaler.update()
+                avg_train_loss = total_loss/predictions.shape[0]
+                running_loss += loss.item()
+
+            # The average loss of the epoch
+            epoch_losses.append(running_loss/batch_idx+1)
 
             if self.verbose:
                 print("")
-                print(f"Average Train Loss: {avg_train_loss}")
+                print(
+                    f"Average Train Loss for epoch {epoch +1}: {avg_train_loss}")
 
             if self.verbose & epoch % 10 == 0:
                 self.show_prediction(data, predictions)
 
             # ------ VALIDATION LOOP BEGINS -------
+            # TODO Fix validation step
             if val_dataset is not None:
                 avg_loss = 0
+                running_val_loss = 0.0
+                val_losses = []
 
                 with torch.no_grad():
                     if self.verbose:
@@ -205,9 +213,9 @@ class Model:
 
                         with torch.cuda.amp.autocast():
                             predictions = self._model(images)
-                            losses = loss_fn(predictions, targets)
-                            val_loss.append(losses)
-                            total_loss = sum(val_loss)
+                            val_loss = loss_fn(predictions, targets)
+                            val_losses.append(val_loss)
+                            total_loss = sum(val_losses)
                             avg_loss += total_loss.item()
                     avg_loss /= len(val_dataset.dataset)
 
@@ -336,7 +344,8 @@ class PoseModel:
                 loss = self.huberloss_fn(predictions, gtVf)
                 losses.append(loss.item())
                 print("LOSSES: ", loss.item())
-
+                visualize_vectorfield(predictions, keypoints[index])
+                raise ValueError
         # backward - calculating and updating the gradients of the network
         optimizer.zero_grad()
         # Compute gradients for each parameter based on the current loss calculation
@@ -365,13 +374,14 @@ class PoseModel:
         """
 
         # Check if this is more stable
-        loss_fn = torch.nn.HuberLoss(prediction, target)
-        print("TORCH HUBER: ", loss_fn)
-        huberDelta = delta
-        loss = torch.abs(target-prediction)
-        loss = torch.where(loss < huberDelta, 0.5 * loss ** 2,
-                           huberDelta * (loss - 0.5 * huberDelta))
-        return torch.sum(loss)
+        loss_fn = torch.nn.HuberLoss(delta=0.5)
+        loss = loss_fn(prediction, target)
+        #print("TORCH-HUBER: ", loss.item())
+        #huberDelta = delta
+        #loss = torch.abs(target-prediction)
+        # loss = torch.where(loss < huberDelta, 0.5 * loss ** 2,
+        #                   huberDelta * (loss - 0.5 * huberDelta))
+        return loss
 
     def evaluate(self):
         raise NotImplementedError

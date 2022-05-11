@@ -29,7 +29,6 @@ class VectorField:
         self.classnames = classnames
         self.keypoints = keypoints
         numKeypoints = keypoints.shape[1]
-        
 
         assert keypoints is not None, f"A list of keypoints are need for generating a vector field! Please ensure the dataset contains keypoints or disable pose estimation."
 
@@ -40,7 +39,9 @@ class VectorField:
             print(
                 f"!!! An abundance of keypoints,({numKeypoints}), detected for class {DEFAULT_CLASS}, if not intentional this may cause obscurity in the final pose estimation.")
         else:
-            print(f" {numKeypoints} keypoints registrered, for the image")
+            print("")
+            print(f"---> {numKeypoints} keypoints registrered, for the image")
+            print("")
 
     def calculate_vector_field(self, targets, images, keypoints, coordInfo):
         """
@@ -72,7 +73,7 @@ class VectorField:
         else:
             raise ValueError(
                 f"Excpected type tensor, list or dict, but got {type(keypoints)}. calculate_vector_field function can only handle lists or dicts of keypoints.")
-        
+
         if not (len(images) == len(targets) == keypoints.shape[0]):
             print(f"Number of images, masks and keypoints is not equal")
             print(
@@ -80,7 +81,7 @@ class VectorField:
             return False
         else:
             numImages = len(images)
-            #Generating a tensor with new keypoints to cropped screen, [x,y] format 
+            # Generating a tensor with new keypoints to cropped screen, [x,y] format
             new_keypoints = torch.tensor(
                 self.update_keypoint(keypoints, coordInfo))
 
@@ -93,25 +94,25 @@ class VectorField:
                 image = np.squeeze(image, axis=0)
                 target = targets[i].permute(0, 2, 3, 1).numpy()
                 target = np.squeeze(target, axis=0)
-                
+
                 numKeypoints = new_keypoints[i].shape[0]
                 dimentions = [image.shape[0],
-                              image.shape[1]]  #[height, width]
+                              image.shape[1]]  # [height, width]
 
                 # generate a array for holding the vectors
                 unitVectors = np.zeros(
                     (dimentions[0], dimentions[1], numKeypoints*2))
 
                 # Get the mask coordinates from the mask image
-                mask = np.where(target != 0)[:2] # FORMAT: y,x 
+                mask = np.where(target != 0)[:2]  # FORMAT: y,x
 
                 # for each pixel in the mask, calculate the unit direction vector towards a keypoint
                 for coordinates in zip(mask[0], mask[1]):
                     self.find_unit_vector(unitVectors, coordinates,
                                           new_keypoints[i], dimentions)
-               
+
                 vectorFieldList.append(unitVectors)
-            
+
         return (np.array(vectorFieldList), new_keypoints)
 
     def find_unit_vector(self, vectors, pixel, keypoints, imgDimentions):
@@ -130,7 +131,7 @@ class VectorField:
         """
 
         for index, keypoint in enumerate(keypoints):
-            
+
             yDiff = imgDimentions[0]*float(1-keypoint[1]) - pixel[0]
             xDiff = imgDimentions[1]*float(keypoint[0]) - pixel[1]
 
@@ -140,7 +141,7 @@ class VectorField:
             vectors[pixel[0]][pixel[1]][index*2+1] = yDiff/magnitude
             vectors[pixel[0]][pixel[1]][index*2] = xDiff/magnitude
 
-    def visualize_gt_vectorfield(self, field, keypoint, indx=-1, imgIndx = 0):
+    def visualize_gt_vectorfield(self, field, keypoint=None, indx=-1, imgIndx=0):
         '''
         Function to visualize vector field towards a certain keypoint, and plotting all keypoint
 
@@ -159,33 +160,35 @@ class VectorField:
             field = field.numpy()
         keypoint = keypoint.numpy()
 
-        #Get vector field and keypoints for a specfic image
+        # Get vector field and keypoints for a specfic image
         if (imgIndx > len(field)-1 or imgIndx < 0):
-            print(f"Image index = {imgIndx} outside of interval [0, {len(field)-1}]")
-            imgIndx = 0   
+            print(
+                f"Image index = {imgIndx} outside of interval [0, {len(field)-1}]")
+            print("Setting image index to the last element")
+            imgIndx = -1
         field = field[imgIndx]
         all_keypoints = keypoint[imgIndx]
 
         dimensions = [field.shape[0], field.shape[1]]  # y,x
-       
+
         newImg = np.zeros((dimensions[0], dimensions[1], 3))
         numCords = int(field.shape[2]/2)
 
-        if(indx==-1):
+        if(indx == -1):
             indx = numCords-1
-        elif(indx>numCords or indx<0):
+        elif(indx > numCords or indx < 0):
             raise ValueError(
                 f"Keypoint value = {indx} needs to be in the interval [1, number of keypoints = {numCords}]")
-       
-        for i in range(dimensions[0]):  
+
+        for i in range(dimensions[0]):
             for j in range(dimensions[1]):
                 if(field[i][j] != np.zeros(2*numCords)).all():
 
                     cy = j
                     cx = i
-                   
-                    x = cx + 2*field[i][j][2*indx] 
-                    y = cy + 2*field[i][j][2*indx+1]   
+
+                    x = cx + 2*field[i][j][2*indx]
+                    y = cy + 2*field[i][j][2*indx+1]
 
                     if(cx-x) < 0:
                         # (2) og (3)
@@ -193,7 +196,7 @@ class VectorField:
                     elif(cy-y) < 0:
                         # (4)
                         if(cx == x):
-                            #270 degrees
+                            # 270 degrees
                             angle = 3/2*m.pi
                         else:
                             angle = m.atan((cy-y)/(cx-x))+2*m.pi
@@ -207,18 +210,27 @@ class VectorField:
                     h = angle/(2*m.pi)
                     rgb = colorsys.hsv_to_rgb(h, 1.0, 1.0)
                     newImg[i][j] = rgb
-                
-        for i in range(len(all_keypoints)):
-            
-            if i == indx:
-                marker = '+'
-            else:
-                marker = '.'
 
-            plt.plot(dimensions[1]*all_keypoints[i][0], dimensions[0]-all_keypoints[i][1] *
-                     dimensions[0], marker=marker, color='white')
-        plt.imshow(newImg)
-        plt.show()
+        if keypoint is not None:
+            for i in range(len(all_keypoints)):
+
+                if i == indx:
+                    marker = '+'
+                else:
+                    marker = '.'
+
+                plt.plot(dimensions[1]*all_keypoints[i][0], dimensions[0]-all_keypoints[i][1] *
+                         dimensions[0], marker=marker, color='white')
+            plt.title(
+                f"GT Vector field for keypoint")
+            plt.imshow(newImg)
+            plt.show()
+        else:
+            print("No keypoints were recieved --> Keypoints are not plotted")
+            plt.title(
+                f"GT Vector field for keypoint")
+            plt.imshow(newImg)
+            plt.show()
 
     def update_keypoint(self, keypoints, coordsInfo):
         updated_keypoints = []
@@ -232,9 +244,9 @@ class VectorField:
 
         for index, keypoint in enumerate(keypoints):
             loop = []
-            #keypoint is now a list of lists with x,y screencoordinates of keypoints
+            # keypoint is now a list of lists with x,y screencoordinates of keypoints
             for element in keypoint:
-                
+
                 updated_keypoint_x = float((
                     600*element[0]-coordsInfo[index][0])/coordsInfo[index][3])
                 updated_keypoint_y = float((

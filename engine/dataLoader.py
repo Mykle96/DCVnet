@@ -12,6 +12,7 @@ class SINTEFDataLoader(torch.utils.data.DataLoader):
     def __init__(self, dataset, **kwargs):
 
         super().__init__(dataset, collate_fn=SINTEFDataLoader.collate_data, **kwargs)
+    # NOT USED
 
     @staticmethod
     def collate_data(batch):
