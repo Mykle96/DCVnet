@@ -394,6 +394,8 @@ class PoseModel:
                     predictions = self.model(image)
                     loss = self.huberloss_fn(predictions, gtVf)
                     losses.append(loss.item())
+                visualize_vectorfield(predictions, keypoints[index])
+
         return losses
 
     def huberloss_fn(self, prediction, target, delta=0.5):
