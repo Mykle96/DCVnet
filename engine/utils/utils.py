@@ -30,7 +30,7 @@ Utility file containing a lot of funct ions used across the system
 #----------------------#
 
 
-def intersection_over_union(prediction: Tensor, target: Tensor, classes=None, threshold=0.5, epsilon=1e-6, **kwargs):
+def dice_score(prediction: Tensor, target: Tensor, classes=None, threshold=0.5, epsilon=1e-6, **kwargs):
     """
     Function for calculating the overlapping area of intersection. The closer to one the greater the overlap and
     subsequently the better the accuracy.
@@ -48,6 +48,8 @@ def intersection_over_union(prediction: Tensor, target: Tensor, classes=None, th
     assert prediction.size() == target.size(
     ), "The prediction and target input do not have matching sizes! "
     dice = []
+    # covnert predictions to probabilities using sigmoid
+    prediction = torch.sigmoid(prediction)
 
     for i in range(prediction.shape[0]):  # Exluding the background (0)
         # Remove batch and channel dimentions, BATCH x 1 x H X W =>
@@ -74,6 +76,16 @@ def intersection_over_union(prediction: Tensor, target: Tensor, classes=None, th
     return np.array(dice)
 
 
+def plot_loss(train_loss=None, val_loss=None, epochs=None):
+    # takes in two lists and the number of epochs that have runned
+    assert len(train_loss) and len(val_loss) is not 0
+    fig = plt.figure()
+    loss = fig.add_subplot(121, title="losses")
+    loss.plot(epochs, train_loss, 'bo-', label='train loss')
+    loss.plot(epochs, val_loss, 'ro-', label='validation loss')
+    plt.plot(loss)
+
+
 def validation_loss():
     raise NotImplementedError("Not yet implemented")
 
@@ -87,14 +99,6 @@ def average_loss():
 
 
 def total_loss():
-    raise NotImplementedError("Not yet implemented")
-
-
-def dice_score(prediction, target, **kwargs):
-    """
-    Function for calculating the dice score (Jaccard index)
-    """
-
     raise NotImplementedError("Not yet implemented")
 
 

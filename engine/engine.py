@@ -105,6 +105,7 @@ class Model:
         self._model.to(device=DEVICE)
         train_loss = []
         epoch_losses = []
+        losses = []
 
         # TODO make a check on segmentation and if True, make another traning loop for BB
         # ----- TRAINING LOOP BEGINS -----
@@ -129,7 +130,27 @@ class Model:
                 targets = element[1].unsqueeze(1).to(
                     device=DEVICE, dtype=torch.float32)
 
-                self.show_prediction(data, targets)
+                # forward
+                with torch.cuda.amp.autocast():
+                    predictions = self._model(data)
+                    loss = loss_fn(predictions, targets)
+                    dice = dice_score(predictions, targets)
+                    print("AVERAGE DICE: ", np.sum(dice)/targets.shape[0])
+                    # TODO Fix the loss function and plot
+                    train_loss.append(loss.item())
+                    total_loss = sum(loss for loss in train_loss)
+
+                # backward - calculating and updating the gradients of the network
+                optimizer.zero_grad()
+                # Compute gradients for each parameter based on the current loss calculation
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
+
+                avg_train_loss = total_loss/predictions.shape[0]
+                running_loss += loss.item()*predictions.shape[0]
+
+                # TRAINING STEP BEGINS FOR POSE ESTIMATION
                 if self.pose_estimation:
                     keypoints = element[2]
 
@@ -143,51 +164,32 @@ class Model:
                     trainPoseData = vectorfield.calculate_vector_field(
                         poseData[1], poseData[0], keypoints, poseData[2])
 
-                    if self.verbose:
+                    if self.verbose and epoch % 20 == 0:
                         vectorfield.visualize_gt_vectorfield(
                             trainPoseData[0], trainPoseData[1], imgIndx=-1)
 
-                # forward
-                with torch.cuda.amp.autocast():
-                    predictions = self._model(data)
-                    loss = loss_fn(predictions, targets)
-                    dice = intersection_over_union(targets, targets)
-                    print("AVERAGE DICE: ", np.sum(dice)/targets.shape[0])
-                    if self.pose_estimation:
-                        # Train the pose network
-                        posePred = self.poseNetwork.train(
-                            poseData, trainPoseData[0], trainPoseData[1])
+                     # Train the pose network
+                    posePrediction = self.poseNetwork.train(
+                        poseData, trainPoseData[0], trainPoseData[1])
 
-                    # TODO Fix the loss function and plot
-                    train_loss.append(loss.item())
-                    total_loss = sum(loss for loss in train_loss)
-
-                # backward - calculating and updating the gradients of the network
-                optimizer.zero_grad()
-                # Compute gradients for each parameter based on the current loss calculation
-                scaler.scale(loss).backward()
-                scaler.step(optimizer)
-                scaler.update()
-                avg_train_loss = total_loss/predictions.shape[0]
-                running_loss += loss.item()
-
-            # The average loss of the epoch
+            # The average loss of the epoch for segmentation
             epoch_losses.append(running_loss/batch_idx+1)
 
             if self.verbose:
                 print("")
                 print(
-                    f"Average Train Loss for epoch {epoch +1}: {avg_train_loss}")
+                    f"Average Train Loss for {self.model_name} epoch {epoch +1}: {avg_train_loss}")
 
-            if self.verbose & epoch % 10 == 0:
+            if self.verbose and epoch % 10 == 0:
                 self.show_prediction(data, predictions)
 
             # ------ VALIDATION LOOP BEGINS -------
-            # TODO Fix validation step
+
             if val_dataset is not None:
-                avg_loss = 0
                 running_val_loss = 0.0
                 val_losses = []
+
+                self._model.eval()  # Set model into evaluation mode
 
                 with torch.no_grad():
                     if self.verbose:
@@ -197,31 +199,44 @@ class Model:
                     iterable = tqdm(val_dataset, position=0,
                                     leave=True) if self.verbose else val_dataset
 
-                    for batch_idx, (images, targets) in enumerate(iterable):
-                        # TODO fix the validation loop
-                        images = images.float().permute(0, 3, 1, 2).to(device=DEVICE)
-                        targets = targets.float().unsqueeze(1).to(device=DEVICE)
+                    for batch_idx, (element) in enumerate(iterable):
+                        data = element[0].permute(0, 3, 1, 2).to(
+                            device=DEVICE, dtype=torch.float32)
+                        targets = element[1].unsqueeze(1).to(
+                            device=DEVICE, dtype=torch.float32)
+
+                        predictions = self._model(data)
+                        dice = dice_score(predictions, targets)
+                        val_loss = loss_fn(predictions, targets)
+                        running_val_loss += val_loss.item() * \
+                            predictions.shape[0]
+
                         if self.pose_estimation:
                             # generate pose data (VectorField)
+                            keypoints = element[2]
+
                             if self.verbose:
+                                print("="*50)
                                 print(
                                     "Generating validation data for keypoint localization")
-                                vectorfield = VectorField(
-                                    targets, images, keypoints)
-                                trainPoseData = vectorfield.calculate_vector_field(
-                                    targets, data, keypoints)
+                                print("")
+                            # generate pose data (VectorField)
+                            poseData = crop_pose_data(data, targets)
+                            vectorfield = VectorField(targets, data, keypoints)
+                            trainPoseData = vectorfield.calculate_vector_field(
+                                poseData[1], poseData[0], keypoints, poseData[2])
 
-                        with torch.cuda.amp.autocast():
-                            predictions = self._model(images)
-                            val_loss = loss_fn(predictions, targets)
-                            val_losses.append(val_loss)
-                            total_loss = sum(val_losses)
-                            avg_loss += total_loss.item()
-                    avg_loss /= len(val_dataset.dataset)
+                            # set network to validation mode
+                            posePrediction = self.poseNetwork.train(
+                                poseData, trainPoseData[0], trainPoseData[1], phase=False)
 
-            # If epoch is 10, print a prediction
+                            # If epoch is 10, print a prediction
+                    val_losses.append(running_val_loss/batch_idx+1)
 
-        return train_loss
+                if epoch % 10 == 0:
+                    # plot the losses
+                    pass
+        return losses
 
     def accuracy(self, image, target, thershold=0.5):
         numCorrect = 0
@@ -297,7 +312,7 @@ class PoseModel:
         if self.model == self.DEFAULT:
             self.model = DCVnet()
 
-    def train(self, images, vectorfield, keypoints=None, val_dataset=None, learning_rate=0.005, optimizer=SGD, loss_fn=None, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=SCALER):
+    def train(self, images, vectorfield, keypoints=None, phase=True, learning_rate=0.005, optimizer=SGD, loss_fn=None, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=SCALER):
         # Takes in a list of tensors, the size of the batch_size set in DataLoader.
         DEVICE = self.device
         assert images is not None, "No image data has been received!"
@@ -325,38 +340,60 @@ class PoseModel:
         #loss_fn = self.unit_loss_function()
 
         # ---------- STARTING TRAINING LOOP ------------
-        if self.verbose:
-            print("-"*50)
-            print("Starting the training of DCVnet")
-            print("-"*50)
-            print("")
+        if phase:
+            if self.verbose:
+                print("-"*50)
+                print("Starting the training of DCVnet")
+                print("-"*50)
+                print("")
 
-        for index, image in tqdm(enumerate(images[0])):
-            assert torch.is_tensor(image), f"The image is not a torch tensor!"
-            self.model.train()  # Set model to training mode
+            for index, image in tqdm(enumerate(images[0])):
+                assert torch.is_tensor(
+                    image), f"The image is not a torch tensor!"
+                self.model.train()  # Set model to training mode
 
-            # Convert one by one the vectorfield gt to Tensor and rearrange so that the channels come first, send to the right device
-            gtVf = torch.tensor(vectorfield[index]).permute(
-                2, 0, 1).to(device=DEVICE)
+                # Convert one by one the vectorfield gt to Tensor and rearrange so that the channels come first, send to the right device
+                gtVf = torch.tensor(vectorfield[index]).permute(
+                    2, 0, 1).to(device=DEVICE)
 
-            with torch.cuda.amp.autocast():
-                predictions = self.model(image)
-                loss = self.huberloss_fn(predictions, gtVf)
-                losses.append(loss.item())
-                print("LOSSES: ", loss.item())
+                with torch.cuda.amp.autocast():
+                    predictions = self.model(image)
+                    loss = self.huberloss_fn(predictions, gtVf)
+                    losses.append(loss.item())
+                    print("LOSSES: ", loss.item())
 
-        # backward - calculating and updating the gradients of the network
-        optimizer.zero_grad()
-        # Compute gradients for each parameter based on the current loss calculation
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
+            # backward - calculating and updating the gradients of the network
+            optimizer.zero_grad()
+            # Compute gradients for each parameter based on the current loss calculation
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
 
-        if self.verbose:
-            # Print the last vectorfield prediction with keypoints
-            visualize_vectorfield(predictions, keypoints[index])
+            if self.verbose:
+                # Print the last vectorfield prediction with keypoints
+                visualize_vectorfield(predictions, keypoints[index])
+        else:
+            # ---------- STARTING VALIDATION LOOP ------------
+            val_loss = 0.0
+            self.model.eval()  # Set model to evaluation mode
+            with torch.no_grad():
+                if self.verbose:
+                    print("="*50)
+                    print("Starting iteration over validation keypoint dataset")
+                    print("")
 
-        print("Total loss: ", losses)
+                for index, image in tqdm(enumerate(images[0])):
+                    assert torch.is_tensor(
+                        image), f"The image is not a torch tensor!"
+
+                    # Convert one by one the vectorfield gt to Tensor and rearrange so that the channels come first, send to the right device
+                    gtVf = torch.tensor(vectorfield[index]).permute(
+                        2, 0, 1).to(device=DEVICE)
+                    # TODO Might need fixing
+
+                    predictions = self.model(image)
+                    loss = self.huberloss_fn(predictions, gtVf)
+                    losses.append(loss.item())
         return losses
 
     def huberloss_fn(self, prediction, target, delta=0.5):
