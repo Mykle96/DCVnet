@@ -1,3 +1,4 @@
+from turtle import Vec2D
 import torch
 from cv2 import cv2
 import numpy as np
@@ -146,69 +147,106 @@ def crop_from_prediction(image, prediction, threshold=0.6):
 #----------------------#
 
 
-def visualize_vectorfield(field, keypoint, indx=-1):
-    # Takes in a np_array of the found unit vector field and displays it
-    # Keypoint is a single keypoint on the format (x,y)
-    # Field is a vectorfield on the format (600,600,18)
+def visualize_vectorfield(field, keypoint, indx=5, oneImage = True):
+    '''
+    Function to visualize vector field towards a certain keypoint, and plotting all keypoint in subplot
 
-    # trainPoseData [5,600,600,18] tensor
-    # keypoint (5,9,2) tensor
-    print("Utils fieldtype :", type(field))
-    print("Utils visulize shape: ", keypoint)
-    if not isinstance(field, np.ndarray):
-        field = field.permute(0, 2, 3, 1).detach().squeeze().numpy()
-    keypoint = keypoint.numpy()
-    print("Utils fieldshape :", type(field))
-    print("Utils fieldshape :", field.shape)
+    args:
+        field:  Tensor with vector field for an image, shape [1, 2*num keypoints, dimX, dimY]
+        keypoint: Tensor with the format (number of keypoints, 2)
+        indx: keypoint index, default is last keypoint 
 
-    #field = field[imgInt]
-    #all_keypoints = keypoint
-    #keypoint = keypoint[indx]
-    dimentions = [field.shape[0], field.shape[1]]  # y,x
-    print("DIMENTIONS: ", dimentions)
+    returns:
+        No return
+    '''
 
-    newImg = np.zeros((dimentions[0], dimentions[1], 3))
-    numCords = int(field.shape[2]/2)
+    if not keypoint == None:
+        
+        # Transforms field to numpy array and to the shape (dimY, dimX, 2*num_keypoints)
+        if not isinstance(field, np.ndarray):
+            field = field.permute(0, 2, 3, 1).detach().squeeze().numpy()
+        keypoint = keypoint.numpy()
+        
 
-    for i in range(dimentions[0]):
-        for j in range(dimentions[1]):
-            if(field[i][j] != np.zeros(2*numCords)).all():
+        dimentions = [field.shape[0], field.shape[1]]  # y,x
+        numCords = int(field.shape[2]/2)
 
-                cy = j
-                cx = i
-                x = cx + 2*field[i][j][indx-1]
-                y = cy + 2*field[i][j][indx]
+        if not(oneImage):
+            rows = m.ceil(m.sqrt(numCords))
+            cols = m.ceil(m.sqrt(numCords))
+            fig, ax= plt.subplots(rows,cols,figsize=(10,10)) #ax[y,x] i plottet
+            ax = ax.flatten()
+            numImages = numCords
+        else:
+            numImages = 1
+            if(indx==-1):
+                indx = numCords-1
+            elif(indx>numCords or indx<0):
+                raise ValueError(
+                    f"Keypoint value = {indx} needs to be in the interval [1, number of keypoints = {numCords}]")
+        
 
-                if(cx-x) < 0:
-                    # (2) og (3)
-                    angle = m.atan((cy-y)/(cx-x))+m.pi
-                elif(cy-y) < 0:
-                    # (4)
-                    if(cx == x):
-                        # 270 grader
-                        angle = 3/2*m.pi
-                    else:
-                        angle = m.atan((cy-y)/(cx-x))+2*m.pi
+        for index in range(numImages):
+            newImg = np.zeros((dimentions[0], dimentions[1], 3))
+            if(oneImage):
+                index = indx
+
+            for i in range(dimentions[0]):
+                for j in range(dimentions[1]):
+                    if(field[i][j] != np.zeros(2*numCords)).all():
+                        
+                        cy = j
+                        cx = i
+                        x = cx + 2*field[i][j][2*index]
+                        y = cy + 2*field[i][j][2*index+1]
+
+                        if(cx-x) < 0:
+                            # (2) og (3)
+                            angle = m.atan((cy-y)/(cx-x))+m.pi
+                        elif(cy-y) < 0:
+                            # (4)
+                            if(cx == x):
+                                # 270 grader
+                                angle = 3/2*m.pi
+                            else:
+                                angle = m.atan((cy-y)/(cx-x))+2*m.pi
+                        else:
+                            # (1)
+                            if(cx == x):
+                                angle = m.pi/2
+                            else:
+                                angle = m.atan((cy-y)/(cx-x))
+
+                        h = angle/(2*m.pi)
+                        rgb = colorsys.hsv_to_rgb(h, 1.0, 1.0)
+                        newImg[i][j] = rgb
+                    
+            
+            if not(oneImage):
+                ax[index].imshow(newImg)
+
+            for k in range(numCords):
+                if k == index:
+                    marker = '+'
+                    color = 'white'
                 else:
-                    # (1)
-                    if(cx == x):
-                        angle = m.pi/2
-                    else:
-                        angle = m.atan((cy-y)/(cx-x))
+                    marker = '.'
+                    color = 'black'
 
-                h = angle/(2*m.pi)
-                rgb = colorsys.hsv_to_rgb(h, 1.0, 1.0)
-                newImg[i][j] = rgb
-            else:
-                k += 1
-    plt.figure(2)
-    for i in range(len(keypoint)):
-
-        plt.plot(dimentions[1]*keypoint[i][0], dimentions[0]-keypoint[i][1] *
-                 dimentions[0], marker='o', color="black")
-    plt.imshow(newImg)
-    plt.show()
-    raise ValueError
+                if not(oneImage):
+                    ax[index].plot(dimentions[1]*keypoint[k][0], dimentions[0]-keypoint[k][1] *
+                            dimentions[0], marker=marker, color=color)
+                else:
+                    plt.plot(dimentions[1]*keypoint[k][0], dimentions[0]-keypoint[k][1] *
+                            dimentions[0], marker=marker, color=color)
+                
+        if(oneImage):    
+            plt.imshow(newImg)
+        
+        plt.show()
+    else:
+        pass
+    
 
 
 #----------------------#
