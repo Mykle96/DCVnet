@@ -1,4 +1,5 @@
 # packages
+from multiprocessing.sharedctypes import Value
 import torch
 import numpy as np
 from tqdm import tqdm
@@ -39,13 +40,14 @@ class Model:
     LOSS = ""
     SCALER = torch.cuda.amp.GradScaler()
 
-    def __init__(self, model=DEFAULT, classes=None, segmentation=True, pose_estimation=False, pretrained=False, verbose=True):
+    def __init__(self, model=DEFAULT, classes=None, segmentation=True, pose_estimation=False, save_images=False, verbose=True):
         # initialize the model class
         # If verbose is selected give more feedback of the process
         self.model_name = model
         self.segmentation = segmentation
         self.pose_estimation = pose_estimation
         self.verbose = verbose
+        self.save_images = save_images
         self.classes = classes
         self.numClasses = len(classes)
         self._device = torch.device(
@@ -185,10 +187,15 @@ class Model:
                     if self.verbose and epoch % 20 == 0:
                         vectorfield.visualize_gt_vectorfield(
                             trainPoseData[0], trainPoseData[1], imgIndx=-1)
-
+                    
+                    if self.save_images and epoch % 20 == 0:
+                        img_meta = f"Epoch_{epoch},b_indx_{batch_idx}"
+                        vectorfield.visualize_gt_vectorfield(
+                            trainPoseData[0], trainPoseData[1], imgIndx=-1, saveImages=True, img_meta=img_meta)
+                    
                      # Train the pose network
                     posePrediction = self.poseNetwork.train(
-                        poseData, trainPoseData[0], trainPoseData[1])
+                        poseData, trainPoseData[0], trainPoseData[1], epoch_number=epoch)
 
             # The average loss of the epoch for segmentation
             epoch_losses.append(running_loss/batch_idx+1)
@@ -201,11 +208,23 @@ class Model:
                     f"Average Train Loss for {self.model_name} epoch {epoch +1}: {running_loss}")
                 print("")
 
+            
+        
+
             if self.verbose and (epoch+1) % 10 == 0:
                 if loss_fn == torch.nn.CrossEntropyLoss:
-                    self.show_prediction(data, pred)
+                    if(self.save_images):
+                        img_meta = f"Epoch_{epoch}"
+                        self.show_prediction(data, pred, save_images=True, img_meta=img_meta)
+                    else:
+                        self.show_prediction(data, pred)
                 else:
-                    self.show_prediction(data, torch.sigmoid(pred))
+                    if(self.save_images):
+                        img_meta = f"Epoch_{epoch}"
+                        self.show_prediction(data, torch.sigmoid(pred), save_images=True, img_meta=img_meta)
+                    else:
+                        self.show_prediction(data, torch.sigmoid(pred))
+
 
             # ------ VALIDATION LOOP BEGINS -------
 
@@ -257,7 +276,7 @@ class Model:
 
                             # set network to validation mode
                             posePrediction = self.poseNetwork.train(
-                                poseData, trainPoseData[0], trainPoseData[1], phase=False)
+                                poseData, trainPoseData[0], trainPoseData[1],epoch_number=epoch, phase=False)
 
                 # If epoch is 10, print a prediction
 
@@ -310,7 +329,7 @@ class Model:
 
         raise NotImplementedError()
 
-    def show_prediction(self, image, prediction):
+    def show_prediction(self, image, prediction, save_images=False, img_meta=""):
         # Show prediction
         image = image.detach().cpu().permute(0, 2, 3, 1).numpy()
         image = image[-1]
@@ -326,7 +345,10 @@ class Model:
         pred = fig.add_subplot(2, 3, 2)
         pred.set_title("Prediction")
         pred.imshow(prediction)
-        plt.show()
+        if save_images:
+            plt.savefig(f"../results/{img_meta}")
+        else:
+            plt.show()
 
     def save(self, filepath=None, name=None):
         if filepath is None or not os.path.exists(filepath):
@@ -350,7 +372,7 @@ class PoseModel:
     SGD = 'SGD'
     SCALER = torch.cuda.amp.GradScaler()
 
-    def __init__(self, model=DEFAULT, device=None, keypoints=None, name=None, verbose=True):
+    def __init__(self, model=DEFAULT, device=None, keypoints=None, name=None, save_images=False, verbose=True):
         # Initialize the Pose Estimation Model
         # Assuming that the data is already loaded
         self.model = model
@@ -358,13 +380,14 @@ class PoseModel:
         self.verbose = verbose
         self.keypoints = keypoints
         self.device = device
+        self.save_images = save_images
         if self.device is None:
             self.device = torch.device(
                 "cuda" if torch.cuda.is_available() else "cpu")
         if self.model == self.DEFAULT:
             self.model = DCVnet()
 
-    def train(self, images, vectorfield, keypoints=None, phase=True, learning_rate=0.005, optimizer=SGD, loss_fn=None, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=SCALER):
+    def train(self, images, vectorfield, epoch_number, keypoints=None, phase=True, learning_rate=0.005, optimizer=SGD, loss_fn=None, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=SCALER):
         # Takes in a list of tensors, the size of the batch_size set in DataLoader.
         DEVICE = self.device
         assert images is not None, "No image data has been received!"
@@ -423,7 +446,9 @@ class PoseModel:
             if self.verbose:
                 # Print the last vectorfield prediction with keypoints
                 visualize_vectorfield(predictions, keypoints[index])
-                print("Vectorfield Loss: ", loss.item())
+            if self.save_images:
+                img_meta = f"Epoch_{epoch_number},b_indx_{index}"
+                visualize_vectorfield(predictions, keypoints[index], saveImages=True, img_meta=img_meta)
         else:
             # ---------- STARTING VALIDATION LOOP ------------
             val_loss = 0.0
@@ -447,6 +472,10 @@ class PoseModel:
                     loss = self.huberloss_fn(predictions, gtVf)
                     losses.append(loss.item())
                 visualize_vectorfield(predictions, keypoints[index])
+                if self.save_images:
+                    img_meta = f"Epoch_{epoch_number},batch_indx_{index}"
+                    visualize_vectorfield(predictions, keypoints[index], saveImages=True, img_meta=img_meta)
+
 
         # Save the model
         if name is None:
