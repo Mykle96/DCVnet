@@ -160,8 +160,8 @@ class Model:
                     with torch.cuda.amp.autocast():
                         predictions = self._model(data)
                         # If Cross entropy is used, add Softmax on the pred before loss is calculated, Update sigmoid to softmax
-                        pred = torch.sigmoid(predictions) if isinstance(
-                            loss_fn, torch.nn.CrossEntropyLoss()) else predictions
+                        pred = torch.sigmoid(
+                            predictions) if loss_fn == torch.nn.CrossEntropyLoss() else predictions
                         loss = loss_fn(pred, targets)
                         # dice = dice_score(pred, targets, self.numClasses)
 
@@ -250,8 +250,8 @@ class Model:
                         if self.segmentation:
                             predictions = self._model(data)
                             # Update sigmoid to softmax
-                            pred = torch.sigmoid(predictions) if isinstance(
-                                loss_fn, torch.nn.CrossEntropyLoss()) else predictions
+                            pred = torch.sigmoid(
+                                predictions) if loss_fn == torch.nn.CrossEntropyLoss() else predictions
                             val_dice = dice_score(pred, targets)
                             val_loss = loss_fn(pred, targets)
 
