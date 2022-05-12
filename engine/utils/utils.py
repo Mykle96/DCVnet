@@ -53,25 +53,24 @@ def dice_score(prediction: Tensor, target: Tensor, classes=None, threshold=0.5, 
 
     for i in range(prediction.shape[0]):  # Exluding the background (0)
         # Remove batch and channel dimentions, BATCH x 1 x H X W =>
-        pred = prediction[i].detach().squeeze(1
-                                              ).cpu().numpy().astype(int) if prediction[i].dim() > 3 else prediction[i].detach().cpu().numpy().astype(int)
+        pred = prediction[i].detach().flatten().cpu().numpy().astype(
+            int) if prediction[i].dim() > 3 else prediction[i].detach().cpu().numpy().astype(int)
 
-        mask = target[i].detach().squeeze(1).cpu().numpy(
+        mask = target[i].detach().flatten().cpu().numpy(
         ).astype(int) if target[i].dim() > 3 else target[i].detach().cpu().numpy().astype(int)
         # visualize_croped_data(pred, mask)
-        intersection = (pred & mask).sum((1, 2))
+        intersection = np.sum(mask * pred)
+        union = np.sum(mask) + np.sum(pred)
 
-        union = (pred | mask).sum((1, 2))
-
-        diceScore = float((intersection+epsilon))/float((union + epsilon))
+        diceScore = (2*intersection+epsilon)/(union + epsilon)
 
         if diceScore < threshold:
-            print("Iou score was below the predetermined threshold of {}, and was thus purged from the set".format(
-                threshold))
+            # print("Iou score was below the predetermined threshold of {}, and was thus purged from the set".format(
+            #    threshold))
             dice.append(0.0)
 
         else:
-            #print(f"Dice Score for prediction {i}: {diceScore}")
+            # print(f"Dice Score for prediction {i}: {diceScore}")
             dice.append(diceScore)
     return np.array(dice)
 
@@ -152,11 +151,11 @@ def crop_from_prediction(image, prediction, threshold=0.6):
     pass
 
 
-#Define constants used in PNP/Ransac methods
+# Define constants used in PNP/Ransac methods
 containerLocalCords = np.array([
 
-        (0, 0, 0),  # fbl
-        (0, 0, -3),  # fbr
+    (0, 0, 0),  # fbl
+    (0, 0, -3),  # fbr
         (0, 3, 0),  # ftl
         (0, 3, -3),  # ftr
         (9, 0, 0),  # bbl
@@ -164,50 +163,54 @@ containerLocalCords = np.array([
         (9, 3, 0),  # btl
         (9, 3, -3),  # btr
         (4.5, 1.5, -1.5)  # Center
-    ])
+
+
+])
 
 # Not sure about this array TODO
 cameraIntrinsics = np.array(
-        [[572.4114, 0., 325.2611], [0., 573.57043, 242.04899], [0., 0., 1.]])
+    [[572.4114, 0., 325.2611], [0., 573.57043, 242.04899], [0., 0., 1.]])
 
 
 def predictPose(vectorField, mask=None, maskThreshold=0.9, localCords=containerLocalCords):
-    
-    if not mask==None:    #Håndter hvis ikke mask
+
+    if not mask == None:  # Håndter hvis ikke mask
 
         if not(type(vectorField) == type(mask) == np.ndarray):
             vectorField = vectorField.toNumpy()
             mask = mask.toNumpy()
 
-        maskCoordinates = np.where(mask > maskThreshold)[1:3]
+        maskCoordinates = np.where(mask > maskThreshold)[1: 3]
         if not(len(maskCoordinates)):
             print("No coordinates in mask with probability value larger than threshold")
             return False, None
     else:
         maskCoordinates = (
-            np.arange(0,vectorField.shape[2], dtype='int'), 
-            np.arange(0,vectorField.shape[3], dtype='int'))
+            np.arange(0, vectorField.shape[2], dtype='int'),
+            np.arange(0, vectorField.shape[3], dtype='int'))
 
     hypDict = ransacVoting(maskCoordinates, vectorField)
     meanDict = getMean(hypDict)
     predictions = dictToArray(meanDict)
-    
-    return True, pnp(predictions), predictions 
+
+    return True, pnp(predictions), predictions
+
 
 def pnp(predictions, localCords=containerLocalCords, matrix=cameraIntrinsics, method=cv2.SOLVEPNP_ITERATIVE):
 
-        try:
-            _, R_exp, tVec = cv2.solvePnP(localCords,
-                                          predictions,
-                                          matrix,
-                                          np.zeros(
-                                              shape=[8, 1], dtype='float64'),
-                                          flags=method)
-        except Exception as e:
-            print(e)
-            # set_trace()
-            print(predictions)
-        return R_exp, tVec
+    try:
+        _, R_exp, tVec = cv2.solvePnP(localCords,
+                                      predictions,
+                                      matrix,
+                                      np.zeros(
+                                          shape=[8, 1], dtype='float64'),
+                                      flags=method)
+    except Exception as e:
+        print(e)
+        # set_trace()
+        print(predictions)
+    return R_exp, tVec
+
 
 def ransacVoting(maskCoordinates, vectorField, numKeypoints=9, numHypotheses=5, ransacThreshold=.99):
     hypDict = {}
@@ -244,9 +247,11 @@ def ransacVoting(maskCoordinates, vectorField, numKeypoints=9, numHypotheses=5, 
             maskCoordinates.append(p2)
     return hypDict
 
+
 def ransacVal(y1, x1, v2):  # dot product of unit vectors to find cos(theta difference)
     v2 = v2 / np.linalg.norm(v2)
     return y1 * v2[1] + x1 * v2[0]
+
 
 def getMean(hypDict):  # get weighted average of coordinates, weights list
     meanDict = {}
@@ -263,6 +268,7 @@ def getMean(hypDict):  # get weighted average of coordinates, weights list
         meanDict[key] = [yMean, xMean]
     return meanDict
 
+
 def dictToArray(hypDict):
     coordArray = np.zeros((len(hypDict.keys()), 2))
     for key, hyps in hypDict.items():
@@ -275,24 +281,28 @@ def dictToArray(hypDict):
 #----------------------#
 
 
-<<<<<<< HEAD
-def visualize_vectorfield(field, keypoint, indx=-1, oneImage = True):
-=======
+<< << << < HEAD
+def visualize_vectorfield(field, keypoint, indx=-1, oneImage=True):
+
+
+== == == =
 def visualize_vectorfield(field, keypoint, indx=5, oneImage=True):
->>>>>>> 60030453903df5ee269ff6d9db124cb2b0445023
-    '''
+
+
+>>>>>> > 60030453903df5ee269ff6d9db124cb2b0445023
+  '''
     Function to visualize vector field towards a certain keypoint, and plotting all keypoint in subplot
 
     args:
         field:  Tensor with vector field for an image, shape [1, 2*num keypoints, dimX, dimY]
         keypoint: Tensor with the format (number of keypoints, 2)
-        indx: keypoint index, default is last keypoint 
+        indx: keypoint index, default is last keypoint
 
     returns:
         No return
     '''
 
-    if not keypoint == None:
+   if not keypoint == None:
 
         # Transforms field to numpy array and to the shape (dimY, dimX, 2*num_keypoints)
         if not isinstance(field, np.ndarray):
@@ -385,12 +395,12 @@ def visualize_vectorfield(field, keypoint, indx=5, oneImage=True):
 def visualize_croped_data(crop_image, crop_mask):
     # function for visualizing the croped image and mask
 
-    crop = torch.squeeze(crop_image) if crop_image.dim() > 3 else crop_image
-    crop_mask = torch.squeeze(crop_mask) if crop_mask.dim() > 2 else crop_mask
-    crop = crop*255
-    crop_mask = crop_mask*255
-    crop_mask_img = torchvision.transforms.ToPILImage()(crop_mask)
-    img = torchvision.transforms.ToPILImage()(
+    crop=torch.squeeze(crop_image) if crop_image.dim() > 3 else crop_image
+    crop_mask=torch.squeeze(crop_mask) if crop_mask.dim() > 2 else crop_mask
+    crop=crop*255
+    crop_mask=crop_mask*255
+    crop_mask_img=torchvision.transforms.ToPILImage()(crop_mask)
+    img=torchvision.transforms.ToPILImage()(
         crop) if crop.dim() == 3 else torchvision.transforms.ToPILImage()(crop)
     img.show()
     crop_mask_img.show()
@@ -411,22 +421,22 @@ def crop_pose_data(image, mask, threshold=0.6):
 
     """
     # initialize variables
-    cropedImages = []
-    cropedMask = []
-    coordInfo = []
+    cropedImages=[]
+    cropedMask=[]
+    coordInfo=[]
 
     for i in range(len(image)):
         # Fetch coordinates of mask wiht a threshold
-        coords = torch.where(mask[i] >= threshold)[1:3]
+        coords=torch.where(mask[i] >= threshold)[1:3]
         print("COORDS: ", coords)
         # Setting top coordinate of the crop, the largest corner of the mask
-        top_y = (min(coords[0]) - 10) if min(coords[0]
+        top_y=(min(coords[0]) - 10) if min(coords[0]
                                              ) > 10 else 0
-        top_x = min(coords[1]) - 10 if min(coords[1]) > 10 else 0
+        top_x=min(coords[1]) - 10 if min(coords[1]) > 10 else 0
         # setting the width and height accrording to the biggest corner of the mask
-        height = max(coords[0])-top_y + 20 if max(coords[0]
+        height=max(coords[0])-top_y + 20 if max(coords[0]
                                                   )-top_y < 580 else max(coords[0])-top_y
-        width = max(coords[1]) - top_x + \
+        width=max(coords[1]) - top_x + \
             20 if max(coords[1]) - top_x < 580 else max(coords[1]) - top_x
 
         # make sure the dimentions are even numbers for the neural network
@@ -436,11 +446,11 @@ def crop_pose_data(image, mask, threshold=0.6):
             width += 1
 
         # Add the new metrics to a index dependant list
-        info = [top_x, top_y, height, width]
+        info=[top_x, top_y, height, width]
         coordInfo.append(info)
 
         # Crop the image and mask on the given point and dimentions
-        crop, crop_mask = TVF.crop(
+        crop, crop_mask=TVF.crop(
             image[i], top_y, top_x, height, width), TVF.crop(
             mask[i], top_y, top_x, height, width)
 

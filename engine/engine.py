@@ -60,7 +60,7 @@ class Model:
             poseNetwork = PoseModel(device=self._device)
             self.poseNetwork = poseNetwork
 
-    def train(self, dataset, val_dataset=None, epochs=150, learning_rate=0.005, optimizer=SGD, loss_fn=None, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=SCALER):
+    def train(self, dataset, val_dataset=None, epochs=150, learning_rate=0.005, optimizer=ADAM, loss_fn=None, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=SCALER):
 
         # Check if the dataset is converted or not, if not initiate, also check for any validation sets.
         assert dataset is not None, "No dataset was received, make sure to input a dataset"
@@ -107,7 +107,6 @@ class Model:
         epoch_losses = []
         losses = []
 
-        # TODO make a check on segmentation and if True, make another traning loop for BB
         # ----- TRAINING LOOP BEGINS -----
         print(f"Beginning traning with {self.model_name} network.")
         for epoch in tqdm(range(epochs)):
@@ -120,6 +119,7 @@ class Model:
 
             if self.verbose:
                 print('Starting iteration over training dataset')
+                print("and generating pose data") if self.pose_estimation else print("")
 
             iterable = tqdm(dataset, position=0,
                             leave=True) if self.verbose else dataset
@@ -144,17 +144,13 @@ class Model:
                 scaler.step(optimizer)
                 scaler.update()
 
-                avg_train_loss = total_loss/predictions.shape[0]
+                #avg_train_loss = train_loss/predictions.shape[0]
                 running_loss += loss.item()*predictions.shape[0]
 
                 # TRAINING STEP BEGINS FOR POSE ESTIMATION
                 if self.pose_estimation:
                     keypoints = element[2]
 
-                    if self.verbose:
-                        print("="*50)
-                        print("Generating training data for keypoint localization")
-                        print("")
                     # generate pose data (VectorField)
                     poseData = crop_pose_data(data, targets)
                     vectorfield = VectorField(targets, data, keypoints)
@@ -174,8 +170,10 @@ class Model:
 
             if self.verbose:
                 print("")
+                print("AVERAGE DICE: ", "%.6f" % np.sum(dice)/targets.shape[0])
                 print(
-                    f"Average Train Loss for {self.model_name} epoch {epoch +1}: {avg_train_loss}")
+                    f"Average Train Loss for {self.model_name} epoch {epoch +1}: {running_loss}")
+                print("")
 
             if self.verbose and epoch % 10 == 0:
                 self.show_prediction(data, predictions)
@@ -368,6 +366,7 @@ class PoseModel:
             if self.verbose:
                 # Print the last vectorfield prediction with keypoints
                 visualize_vectorfield(predictions, keypoints[index])
+                print("Vectorfield Loss: ", loss.item())
         else:
             # ---------- STARTING VALIDATION LOOP ------------
             val_loss = 0.0
@@ -387,7 +386,7 @@ class PoseModel:
                         2, 0, 1).to(device=DEVICE, dtype=torch.float32)
                     # TODO Might need fixing
 
-                    predictions = torch.sigmoid(self.model(image))
+                    predictions = self.model(image)
                     loss = self.huberloss_fn(predictions, gtVf)
                     losses.append(loss.item())
                 visualize_vectorfield(predictions, keypoints[index])
@@ -426,7 +425,6 @@ class PoseModel:
 
 
 # Method to visualize keypoint prediction and rotation of container, Not implemented ye
-
 
     def show_prediction(self):
         raise NotImplementedError
