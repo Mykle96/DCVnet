@@ -48,8 +48,9 @@ def dice_score(prediction: Tensor, target: Tensor, classes=None, threshold=0.5, 
     assert prediction.size() == target.size(
     ), "The prediction and target input do not have matching sizes! "
     dice = []
+
     # covnert predictions to probabilities using sigmoid
-    prediction = torch.sigmoid(prediction)
+    prediction = prediction if classes > 1 else prediction = torch.sigmoid(prediction)
 
     for i in range(prediction.shape[0]):  # Exluding the background (0)
         # Remove batch and channel dimentions, BATCH x 1 x H X W =>

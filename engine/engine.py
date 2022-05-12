@@ -93,9 +93,10 @@ class Model:
         if loss_fn is None:
             if self.numClasses > 1:
                 loss_fn = torch.nn.CrossEntropyLoss()
-                # If Cross entropy is used, add Sigmoid on the pred before loss is calculated
+                print("Loss Function: ", loss_fn)
             if self.numClasses == 1:
                 loss_fn = torch.nn.BCEWithLogitsLoss()
+                print("Loss Function: ", loss_fn)
         else:
             loss_fn = loss_fn
 
@@ -134,8 +135,11 @@ class Model:
 
                 with torch.cuda.amp.autocast():
                     predictions = self._model(data)
-                    loss = loss_fn(predictions, targets)
-                    dice = dice_score(predictions, targets)
+                    # If Cross entropy is used, add Softmax on the pred before loss is calculated
+                    pred = torch.softmax(predictions) if isinstance(
+                        loss_fn, torch.nn.CrossEntropyLoss()) else predictions
+                    loss = loss_fn(pred, targets)
+                    #dice = dice_score(pred, targets, self.numClasses)
 
                 # backward - calculating and updating the gradients of the network
                 optimizer.zero_grad()
@@ -170,7 +174,7 @@ class Model:
 
             if self.verbose:
                 print("")
-                print("AVERAGE DICE: ", "%.6f" % np.sum(dice)/targets.shape[0])
+                #print("AVERAGE DICE: ", "%.6f" % np.sum(dice)/targets.shape[0])
                 print(
                     f"Average Train Loss for {self.model_name} epoch {epoch +1}: {running_loss}")
                 print("")
@@ -201,8 +205,12 @@ class Model:
                             device=DEVICE, dtype=torch.float32)
 
                         predictions = self._model(data)
-                        dice = dice_score(predictions, targets)
-                        val_loss = loss_fn(predictions, targets)
+
+                        pred = torch.softmax(predictions) if isinstance(
+                            loss_fn, torch.nn.CrossEntropyLoss()) else predictions
+                        val_dice = dice_score(pred, targets)
+                        val_loss = loss_fn(pred, targets)
+
                         running_val_loss += val_loss.item() * \
                             predictions.shape[0]
 
@@ -227,6 +235,13 @@ class Model:
 
                             # If epoch is 10, print a prediction
                     val_losses.append(running_val_loss/batch_idx+1)
+                    if self.verbose:
+                        print("")
+                        print("AVERAGE VAL DICE: ", "%.6f" %
+                              np.sum(val_dice)/targets.shape[0])
+                        print(
+                            f"Average Validation Loss for {self.model_name} epoch {epoch +1}: {running_loss}")
+                        print("")
 
                 if epoch % 10 == 0:
                     # plot the losses
@@ -425,6 +440,7 @@ class PoseModel:
 
 
 # Method to visualize keypoint prediction and rotation of container, Not implemented ye
+
 
     def show_prediction(self):
         raise NotImplementedError
