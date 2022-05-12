@@ -50,7 +50,7 @@ def dice_score(prediction: Tensor, target: Tensor, classes=None, threshold=0.5, 
     dice = []
 
     # covnert predictions to probabilities using sigmoid
-    prediction = prediction if classes > 1 else prediction = torch.sigmoid(prediction)
+    prediction = prediction if classes > 1 else torch.sigmoid(prediction)
 
     for i in range(prediction.shape[0]):  # Exluding the background (0)
         # Remove batch and channel dimentions, BATCH x 1 x H X W =>
@@ -76,14 +76,15 @@ def dice_score(prediction: Tensor, target: Tensor, classes=None, threshold=0.5, 
     return np.array(dice)
 
 
-def plot_loss(train_loss=None, val_loss=None, epochs=None):
+def plot_loss(train_loss=None, val_loss=None, epochs=None, name=None):
     # takes in two lists and the number of epochs that have runned
     assert len(train_loss) and len(val_loss) is not 0
-    fig = plt.figure()
-    loss = fig.add_subplot(121, title="losses")
-    loss.plot(epochs, train_loss, 'bo-', label='train loss')
-    loss.plot(epochs, val_loss, 'ro-', label='validation loss')
-    plt.plot(loss)
+    fig = plt.figure(figsize=(10, 5))
+    plt.title(f"{name} Training and Validation Loss")
+    plt.plot(epochs, train_loss, 'bo-', label='train loss')
+    plt.plot(epochs, val_loss, 'ro-', label='validation loss')
+    plt.legend(['Train', 'Valid'])
+    plt.show()
 
 
 def validation_loss():
@@ -157,13 +158,13 @@ containerLocalCords = np.array([
 
     (0, 0, 0),  # fbl
     (0, 0, -3),  # fbr
-        (0, 3, 0),  # ftl
-        (0, 3, -3),  # ftr
-        (9, 0, 0),  # bbl
-        (9, 0, -3),  # bbr
-        (9, 3, 0),  # btl
-        (9, 3, -3),  # btr
-        (4.5, 1.5, -1.5)  # Center
+    (0, 3, 0),  # ftl
+    (0, 3, -3),  # ftr
+    (9, 0, 0),  # bbl
+    (9, 0, -3),  # bbr
+    (9, 3, 0),  # btl
+    (9, 3, -3),  # btr
+    (4.5, 1.5, -1.5)  # Center
 
 
 ])
@@ -282,32 +283,25 @@ def dictToArray(hypDict):
 #----------------------#
 
 
-<< << << < HEAD
 def visualize_vectorfield(field, keypoint, indx=-1, oneImage=True):
-
-
-== == == =
-def visualize_vectorfield(field, keypoint, indx=5, oneImage=True):
-
-
->>>>>> > 60030453903df5ee269ff6d9db124cb2b0445023
-  '''
-    Function to visualize vector field towards a certain keypoint, and plotting all keypoint in subplot
-
-    args:
-        field:  Tensor with vector field for an image, shape [1, 2*num keypoints, dimX, dimY]
-        keypoint: Tensor with the format (number of keypoints, 2)
-        indx: keypoint index, default is last keypoint
-
-    returns:
-        No return
     '''
+      Function to visualize vector field towards a certain keypoint, and plotting all keypoint in subplot
 
-   if not keypoint == None:
+      args:
+          field:  Tensor with vector field for an image, shape [1, 2*num keypoints, dimX, dimY]
+          keypoint: Tensor with the format (number of keypoints, 2)
+          indx: keypoint index, default is last keypoint
+
+      returns:
+          No return
+      '''
+
+    if not keypoint == None:
 
         # Transforms field to numpy array and to the shape (dimY, dimX, 2*num_keypoints)
         if not isinstance(field, np.ndarray):
-            field = field.permute(0, 2, 3, 1).detach().squeeze().cpu().numpy()
+            field = field.permute(
+                0, 2, 3, 1).detach().squeeze().cpu().numpy()
         keypoint = keypoint.cpu().numpy()
 
         dimentions = [field.shape[0], field.shape[1]]  # y,x
@@ -396,12 +390,12 @@ def visualize_vectorfield(field, keypoint, indx=5, oneImage=True):
 def visualize_croped_data(crop_image, crop_mask):
     # function for visualizing the croped image and mask
 
-    crop=torch.squeeze(crop_image) if crop_image.dim() > 3 else crop_image
-    crop_mask=torch.squeeze(crop_mask) if crop_mask.dim() > 2 else crop_mask
-    crop=crop*255
-    crop_mask=crop_mask*255
-    crop_mask_img=torchvision.transforms.ToPILImage()(crop_mask)
-    img=torchvision.transforms.ToPILImage()(
+    crop = torch.squeeze(crop_image) if crop_image.dim() > 3 else crop_image
+    crop_mask = torch.squeeze(crop_mask) if crop_mask.dim() > 2 else crop_mask
+    crop = crop*255
+    crop_mask = crop_mask*255
+    crop_mask_img = torchvision.transforms.ToPILImage()(crop_mask)
+    img = torchvision.transforms.ToPILImage()(
         crop) if crop.dim() == 3 else torchvision.transforms.ToPILImage()(crop)
     img.show()
     crop_mask_img.show()
@@ -422,22 +416,22 @@ def crop_pose_data(image, mask, threshold=0.6):
 
     """
     # initialize variables
-    cropedImages=[]
-    cropedMask=[]
-    coordInfo=[]
+    cropedImages = []
+    cropedMask = []
+    coordInfo = []
 
     for i in range(len(image)):
         # Fetch coordinates of mask wiht a threshold
-        coords=torch.where(mask[i] >= threshold)[1:3]
+        coords = torch.where(mask[i] >= threshold)[1:3]
         print("COORDS: ", coords)
         # Setting top coordinate of the crop, the largest corner of the mask
-        top_y=(min(coords[0]) - 10) if min(coords[0]
+        top_y = (min(coords[0]) - 10) if min(coords[0]
                                              ) > 10 else 0
-        top_x=min(coords[1]) - 10 if min(coords[1]) > 10 else 0
+        top_x = min(coords[1]) - 10 if min(coords[1]) > 10 else 0
         # setting the width and height accrording to the biggest corner of the mask
-        height=max(coords[0])-top_y + 20 if max(coords[0]
+        height = max(coords[0])-top_y + 20 if max(coords[0]
                                                   )-top_y < 580 else max(coords[0])-top_y
-        width=max(coords[1]) - top_x + \
+        width = max(coords[1]) - top_x + \
             20 if max(coords[1]) - top_x < 580 else max(coords[1]) - top_x
 
         # make sure the dimentions are even numbers for the neural network
@@ -447,11 +441,11 @@ def crop_pose_data(image, mask, threshold=0.6):
             width += 1
 
         # Add the new metrics to a index dependant list
-        info=[top_x, top_y, height, width]
+        info = [top_x, top_y, height, width]
         coordInfo.append(info)
 
         # Crop the image and mask on the given point and dimentions
-        crop, crop_mask=TVF.crop(
+        crop, crop_mask = TVF.crop(
             image[i], top_y, top_x, height, width), TVF.crop(
             mask[i], top_y, top_x, height, width)
 

@@ -17,8 +17,8 @@ from torch.utils.data import DataLoader
 # internal imports
 from vectorField import VectorField
 # from dataLoader import DataLoader
-from model.network import UNET
-from model.vectorNetwork import DCVnet
+from networks.network import UNET
+from networks.vectorNetwork import DCVnet
 from vectorField import VectorField
 from utils.utils import *
 # from DCVnet.visuals.visualization import *
@@ -43,6 +43,7 @@ class Model:
         # initialize the model class
         # If verbose is selected give more feedback of the process
         self.model_name = model
+        self.segmentation = segmentation
         self.pose_estimation = pose_estimation
         self.verbose = verbose
         self.classes = classes
@@ -50,17 +51,21 @@ class Model:
         self._device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
 
-        if model == self.DEFAULT:
-            self._model = UNET()
+        assert segmentation or pose_estimation, "Both segmentation and pose estimation have been set to False! Please choose one or both"
 
-        if self.pose_estimation:
-            if self.verbose:
+        if segmentation:
+            if model == self.DEFAULT:
+                self._model = UNET()
+
+        if pose_estimation:
+            if verbose:
+                print("-"*50)
                 print("Preparing pose estimation pipeline")
-            # TODO fix pose estimation network
+                print("-"*50)
             poseNetwork = PoseModel(device=self._device)
             self.poseNetwork = poseNetwork
 
-    def train(self, dataset, val_dataset=None, epochs=150, learning_rate=0.005, optimizer=ADAM, loss_fn=None, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=SCALER):
+    def train(self, dataset, val_dataset=None, epochs=150, learning_rate=0.005, optimizer=ADAM, loss_fn=None, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=SCALER, name=None):
 
         # Check if the dataset is converted or not, if not initiate, also check for any validation sets.
         assert dataset is not None, "No dataset was received, make sure to input a dataset"
@@ -70,7 +75,22 @@ class Model:
         if val_dataset is not None and not isinstance(val_dataset, DataLoader):
             val_dataset = DataLoader(val_dataset, shuffle=True)
 
-        DEVICE = self._device
+        if self._device == torch.device('cpu'):
+            print('It looks like you\'re about to train your model on a CPU. '
+                  'Consider switching to a GPU as this is not recommended')
+            DEVICE = self._device
+        else:
+            print("GPU found:")
+            print("----------------------------------------------------------")
+            print('__CUDNN VERSION:', torch.backends.cudnn.version())
+            print('__Number of CUDA Devices:', torch.cuda.device_count())
+            print('__CUDA Device Name:', torch.cuda.get_device_name(0))
+            print('__CUDA Device Total Memory [GB]:', torch.cuda.get_device_properties(
+                0).total_memory/1e9)
+            print("----------------------------------------------------------")
+            torch.cuda.empty_cache()
+            DEVICE = self._device
+
         # initate training parameters and variables
         # Select optimizer and tune parameters
         assert type(
@@ -78,11 +98,11 @@ class Model:
         # Get parameters that have grad turned on (i.e. parameters that should be trained)
         parameters = [p for p in self._model.parameters() if p.requires_grad]
 
-        if optimizer in ["adam", "Adam"]:
+        if optimizer in ["adam", "Adam", "ADAM"]:
             print("Optimizer: Adam")
             optimizer = torch.optim.Adam(
                 parameters, lr=learning_rate, weight_decay=weight_decay)
-        elif optimizer in ["sgd", "SGD"]:
+        elif optimizer in ["sgd", "SGD", "Sgd"]:
             print("Optimizer: SGD")
             optimizer = torch.optim.SGD(
                 parameters, lr=learning_rate, momentum=momentum, weight_decay=weight_decay)
@@ -131,25 +151,25 @@ class Model:
                 targets = element[1].unsqueeze(1).to(
                     device=DEVICE, dtype=torch.float32)
 
-                # forward
+                if self.segmentation:
+                    # forward
+                    with torch.cuda.amp.autocast():
+                        predictions = self._model(data)
+                        # If Cross entropy is used, add Softmax on the pred before loss is calculated
+                        pred = torch.softmax(predictions) if isinstance(
+                            loss_fn, torch.nn.CrossEntropyLoss()) else predictions
+                        loss = loss_fn(pred, targets)
+                        # dice = dice_score(pred, targets, self.numClasses)
 
-                with torch.cuda.amp.autocast():
-                    predictions = self._model(data)
-                    # If Cross entropy is used, add Softmax on the pred before loss is calculated
-                    pred = torch.softmax(predictions) if isinstance(
-                        loss_fn, torch.nn.CrossEntropyLoss()) else predictions
-                    loss = loss_fn(pred, targets)
-                    #dice = dice_score(pred, targets, self.numClasses)
+                    # backward - calculating and updating the gradients of the network
+                    optimizer.zero_grad()
+                    # Compute gradients for each parameter based on the current loss calculation
+                    scaler.scale(loss).backward()
+                    scaler.step(optimizer)
+                    scaler.update()
 
-                # backward - calculating and updating the gradients of the network
-                optimizer.zero_grad()
-                # Compute gradients for each parameter based on the current loss calculation
-                scaler.scale(loss).backward()
-                scaler.step(optimizer)
-                scaler.update()
-
-                #avg_train_loss = train_loss/predictions.shape[0]
-                running_loss += loss.item()*predictions.shape[0]
+                    # avg_train_loss = train_loss/predictions.shape[0]
+                    running_loss += loss.item()*predictions.shape[0]
 
                 # TRAINING STEP BEGINS FOR POSE ESTIMATION
                 if self.pose_estimation:
@@ -171,16 +191,17 @@ class Model:
 
             # The average loss of the epoch for segmentation
             epoch_losses.append(running_loss/batch_idx+1)
+            train_loss.append(running_loss/batch_idx+1)
 
             if self.verbose:
                 print("")
-                #print("AVERAGE DICE: ", "%.6f" % np.sum(dice)/targets.shape[0])
+                # print("AVERAGE DICE: ", "%.6f" % np.sum(dice)/targets.shape[0])
                 print(
                     f"Average Train Loss for {self.model_name} epoch {epoch +1}: {running_loss}")
                 print("")
 
-            if self.verbose and epoch % 10 == 0:
-                self.show_prediction(data, predictions)
+            if self.verbose and epoch+1 % 10 == 0:
+                self.show_prediction(data, pred)
 
             # ------ VALIDATION LOOP BEGINS -------
 
@@ -204,15 +225,16 @@ class Model:
                         targets = element[1].unsqueeze(1).to(
                             device=DEVICE, dtype=torch.float32)
 
-                        predictions = self._model(data)
+                        if self.segmentation:
+                            predictions = self._model(data)
 
-                        pred = torch.softmax(predictions) if isinstance(
-                            loss_fn, torch.nn.CrossEntropyLoss()) else predictions
-                        val_dice = dice_score(pred, targets)
-                        val_loss = loss_fn(pred, targets)
+                            pred = torch.softmax(predictions) if isinstance(
+                                loss_fn, torch.nn.CrossEntropyLoss()) else predictions
+                            val_dice = dice_score(pred, targets)
+                            val_loss = loss_fn(pred, targets)
 
-                        running_val_loss += val_loss.item() * \
-                            predictions.shape[0]
+                            running_val_loss += val_loss.item() * \
+                                predictions.shape[0]
 
                         if self.pose_estimation:
                             # generate pose data (VectorField)
@@ -237,15 +259,22 @@ class Model:
                     val_losses.append(running_val_loss/batch_idx+1)
                     if self.verbose:
                         print("")
-                        print("AVERAGE VAL DICE: ", "%.6f" %
+                        print("AVERAGE VAL DICE: ",
                               np.sum(val_dice)/targets.shape[0])
                         print(
-                            f"Average Validation Loss for {self.model_name} epoch {epoch +1}: {running_loss}")
+                            f"Average Validation Loss for {self.model_name} epoch {epoch +1}: {running_val_loss}")
                         print("")
 
-                if epoch % 10 == 0:
+                if epoch+1 % 10 == 0:
                     # plot the losses
                     pass
+
+        # Save the model
+        if name is None:
+            name = self.model_name + f"v.{random.randint(0,10)}"
+        else:
+            self.save()
+
         return losses
 
     def accuracy(self, image, target, thershold=0.5):
@@ -291,10 +320,15 @@ class Model:
         pred.imshow(prediction)
         plt.show()
 
-    def save(self, file):
-        torch.save(self._model.state_dict(), file)
+    def save(self, filepath=None, name=None):
+        if filepath is None or not os.path.exists(filepath):
+            filepath = "../models/unet"
+
+        torch.save(self._model.state_dict(), filepath+"/"+name)
         if self.verbose:
+            print("="*50)
             print("Model has been saved!")
+            print("="*50)
 
 
 # ----------------------------------------------------------------------------------------------
@@ -347,7 +381,7 @@ class PoseModel:
         # Send the model to the current device
         self.model.to(device=DEVICE)
         loss_fn = torch.nn.CrossEntropyLoss()
-        #loss_fn = self.unit_loss_function()
+        # loss_fn = self.unit_loss_function()
 
         # ---------- STARTING TRAINING LOOP ------------
         if phase:
@@ -425,9 +459,9 @@ class PoseModel:
         loss_fn = torch.nn.HuberLoss(delta=0.5)
         target, prediction = target.squeeze(), prediction.squeeze()  # Remove batch dimention
         loss = loss_fn(prediction, target)
-        #print("TORCH-HUBER: ", loss.item())
-        #huberDelta = delta
-        #loss = torch.abs(target-prediction)
+        # print("TORCH-HUBER: ", loss.item())
+        # huberDelta = delta
+        # loss = torch.abs(target-prediction)
         # loss = torch.where(loss < huberDelta, 0.5 * loss ** 2,
         #                   huberDelta * (loss - 0.5 * huberDelta))
         return loss
@@ -440,7 +474,6 @@ class PoseModel:
 
 
 # Method to visualize keypoint prediction and rotation of container, Not implemented ye
-
 
     def show_prediction(self):
         raise NotImplementedError
