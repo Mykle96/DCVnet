@@ -85,8 +85,8 @@ class SINTEFDataset(torch.utils.data.Dataset):
                 raise NotImplementedError(
                     "Custom Transformations are not handled yet! set to None")
             else:
-                # Check if the images are of the dimentions of 600x600, if not set them to that size
-                pass
+                image, mask = self.segm_transform(image, mask)
+
             return image, mask, keypoints
         else:
             image = self.Dir[index][0]

@@ -504,7 +504,6 @@ def test():
     # plt.show()
     plt.imshow(mask)
     # plt.show()
-    intersection_over_union(image, mask, 1)
 
 
 if __name__ == "__main__":
