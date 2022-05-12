@@ -64,7 +64,8 @@ class Model:
                 print("-"*50)
                 print("Preparing pose estimation pipeline")
                 print("-"*50)
-            poseNetwork = PoseModel(device=self._device)
+            poseNetwork = PoseModel(
+                device=self._device, save_images=save_images)
             self.poseNetwork = poseNetwork
 
     def train(self, dataset, val_dataset=None, epochs=150, learning_rate=0.005, optimizer=ADAM, loss_fn=None, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=SCALER, name=None):
@@ -149,9 +150,9 @@ class Model:
                             leave=True) if self.verbose else dataset
 
             for batch_idx, (element) in enumerate(iterable):
-                data = element[0].permute(0, 3, 1, 2).to(
+                data = element[0].to(
                     device=DEVICE, dtype=torch.float32)
-                targets = element[1].unsqueeze(1).to(
+                targets = element[1].to(
                     device=DEVICE, dtype=torch.float32)
 
                 if self.segmentation:
@@ -187,12 +188,12 @@ class Model:
                     if self.verbose and epoch % 20 == 0:
                         vectorfield.visualize_gt_vectorfield(
                             trainPoseData[0], trainPoseData[1], imgIndx=-1)
-                    
+
                     if self.save_images and epoch % 20 == 0:
                         img_meta = f"Epoch_{epoch},b_indx_{batch_idx}"
                         vectorfield.visualize_gt_vectorfield(
                             trainPoseData[0], trainPoseData[1], imgIndx=-1, saveImages=True, img_meta=img_meta)
-                    
+
                      # Train the pose network
                     posePrediction = self.poseNetwork.train(
                         poseData, trainPoseData[0], trainPoseData[1], epoch_number=epoch)
@@ -208,23 +209,21 @@ class Model:
                     f"Average Train Loss for {self.model_name} epoch {epoch +1}: {running_loss}")
                 print("")
 
-            
-        
-
             if self.verbose and (epoch+1) % 10 == 0:
                 if loss_fn == torch.nn.CrossEntropyLoss:
                     if(self.save_images):
                         img_meta = f"Epoch_{epoch}"
-                        self.show_prediction(data, pred, save_images=True, img_meta=img_meta)
+                        self.show_prediction(
+                            data, pred, save_images=True, img_meta=img_meta)
                     else:
                         self.show_prediction(data, pred)
                 else:
                     if(self.save_images):
                         img_meta = f"Epoch_{epoch}"
-                        self.show_prediction(data, torch.sigmoid(pred), save_images=True, img_meta=img_meta)
+                        self.show_prediction(data, torch.sigmoid(
+                            pred), save_images=True, img_meta=img_meta)
                     else:
                         self.show_prediction(data, torch.sigmoid(pred))
-
 
             # ------ VALIDATION LOOP BEGINS -------
 
@@ -243,9 +242,9 @@ class Model:
                                     leave=True) if self.verbose else val_dataset
 
                     for batch_idx, (element) in enumerate(iterable):
-                        data = element[0].permute(0, 3, 1, 2).to(
+                        data = element[0].to(
                             device=DEVICE, dtype=torch.float32)
-                        targets = element[1].unsqueeze(1).to(
+                        targets = element[1].to(
                             device=DEVICE, dtype=torch.float32)
 
                         if self.segmentation:
@@ -276,7 +275,7 @@ class Model:
 
                             # set network to validation mode
                             posePrediction = self.poseNetwork.train(
-                                poseData, trainPoseData[0], trainPoseData[1],epoch_number=epoch, phase=False)
+                                poseData, trainPoseData[0], trainPoseData[1], epoch_number=epoch, phase=False)
 
                 # If epoch is 10, print a prediction
 
@@ -300,8 +299,9 @@ class Model:
         if name is None:
             name = self.model_name + f"_v.{random.randint(0,10)}"
         else:
-            self.save()
+            name = name
 
+        self.save(name=name)
         return epoch_losses
 
     def accuracy(self, image, target, thershold=0.5):
@@ -387,7 +387,7 @@ class PoseModel:
         if self.model == self.DEFAULT:
             self.model = DCVnet()
 
-    def train(self, images, vectorfield, epoch_number, keypoints=None, phase=True, learning_rate=0.005, optimizer=SGD, loss_fn=None, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=SCALER):
+    def train(self, images, vectorfield, epoch_number, keypoints=None, phase=True, learning_rate=0.005, optimizer=SGD, loss_fn=None, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=SCALER, name=None):
         # Takes in a list of tensors, the size of the batch_size set in DataLoader.
         DEVICE = self.device
         assert images is not None, "No image data has been received!"
@@ -416,11 +416,6 @@ class PoseModel:
 
         # ---------- STARTING TRAINING LOOP ------------
         if phase:
-            if self.verbose:
-                print("-"*50)
-                print("Starting the training of DCVnet")
-                print("-"*50)
-                print("")
 
             for index, image in tqdm(enumerate(images[0])):
                 assert torch.is_tensor(
@@ -448,7 +443,8 @@ class PoseModel:
                 visualize_vectorfield(predictions, keypoints[index])
             if self.save_images:
                 img_meta = f"Epoch_{epoch_number},b_indx_{index}"
-                visualize_vectorfield(predictions, keypoints[index], saveImages=True, img_meta=img_meta)
+                visualize_vectorfield(
+                    predictions, keypoints[index], saveImages=True, img_meta=img_meta)
         else:
             # ---------- STARTING VALIDATION LOOP ------------
             val_loss = 0.0
@@ -474,15 +470,16 @@ class PoseModel:
                 visualize_vectorfield(predictions, keypoints[index])
                 if self.save_images:
                     img_meta = f"Epoch_{epoch_number},batch_indx_{index}"
-                    visualize_vectorfield(predictions, keypoints[index], saveImages=True, img_meta=img_meta)
-
+                    visualize_vectorfield(
+                        predictions, keypoints[index], saveImages=True, img_meta=img_meta)
 
         # Save the model
         if name is None:
             name = "Pose_network" + f"_v.{random.randint(0,10)}"
         else:
-            self.save()
+            name = name
 
+        self.save(name=name)
         return losses
 
     def huberloss_fn(self, prediction, target, delta=0.5):

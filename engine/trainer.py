@@ -21,8 +21,8 @@ WEIGHT_DECAY = 0.0005
 GAMMA = 0.1
 LR_STEP = 3
 # ----- DATASET LOADERS ------
-TRAIN_DATA_PATH = "data/dataset"
-VAL_DATA_PATH = "data/val_dataset"
+TRAIN_DATA_PATH = "../data/dataset"
+VAL_DATA_PATH = "../data/val_dataset"
 TEST_DATA_PATH = ""
 # fetch and format the data
 TRAIN_DATA, VAL_DATA = SINTEFDataset(TRAIN_DATA_PATH, pose=POSE, transform=None), SINTEFDataset(

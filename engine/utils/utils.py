@@ -283,7 +283,7 @@ def dictToArray(hypDict):
 #----------------------#
 
 
-def visualize_vectorfield(field, keypoint, indx=-1, oneImage = True, saveImages=False, img_meta=""):
+def visualize_vectorfield(field, keypoint, indx=-1, oneImage=True, saveImages=False, img_meta=""):
     '''
       Function to visualize vector field towards a certain keypoint, and plotting all keypoint in subplot
 
@@ -379,7 +379,8 @@ def visualize_vectorfield(field, keypoint, indx=-1, oneImage = True, saveImages=
             plt.imshow(newImg)
 
         if(saveImages):
-            plt.savefig(f"../results/{img_meta}")
+            path = "../results"
+            plt.savefig(path + "/" + f"{img_meta}")
         else:
             plt.show()
     else:
@@ -426,7 +427,7 @@ def crop_pose_data(image, mask, threshold=0.6):
     for i in range(len(image)):
         # Fetch coordinates of mask wiht a threshold
         coords = torch.where(mask[i] >= threshold)[1:3]
-        
+
         # Setting top coordinate of the crop, the largest corner of the mask
         top_y = (min(coords[0]) - 10) if min(coords[0]
                                              ) > 10 else 0

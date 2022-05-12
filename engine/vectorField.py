@@ -141,7 +141,7 @@ class VectorField:
             vectors[pixel[0]][pixel[1]][index*2+1] = yDiff/magnitude
             vectors[pixel[0]][pixel[1]][index*2] = xDiff/magnitude
 
-    def visualize_gt_vectorfield(self, field, keypoint, indx=5, imgIndx=-1, oneImage=False, saveImages=False):
+    def visualize_gt_vectorfield(self, field, keypoint, indx=5, imgIndx=-1, oneImage=False, saveImages=False, img_meta=""):
         '''
         Function to visualize vector field towards a certain keypoint, and plotting all keypoint
 
@@ -241,7 +241,8 @@ class VectorField:
         if(oneImage):
             plt.imshow(newImg)
         if(saveImages):
-            pass
+            path = "../results"
+            plt.savefig(path + "/" + f"{img_meta}")
         else:
             plt.show()
 

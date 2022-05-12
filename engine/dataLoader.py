@@ -85,9 +85,14 @@ class SINTEFDataset(torch.utils.data.Dataset):
                 raise NotImplementedError(
                     "Custom Transformations are not handled yet! set to None")
             else:
-                image, mask = self.segm_transform(image, mask)
+                # image, mask = self.segm_transform(image, mask)
 
+                pass
+
+            image = image.transpose(2, 0, 1)
+            mask = np.expand_dims(mask, axis=0)
             return image, mask, keypoints
+
         else:
             image = self.Dir[index][0]
             mask = self.Dir[index][1]
@@ -102,6 +107,10 @@ class SINTEFDataset(torch.utils.data.Dataset):
                 image, mask = self.segm_transform(image, mask)
 
             return image, mask
+        # If no transformations, reshape the numpy arrays and expand the mask with one dimention
+        image = image.transpose(2, 0, 1)
+        mask = np.expand_dims(mask, axis=0)
+        return image, mask
 
     def formatStringToDict(self, string):
         newString = ""
@@ -179,15 +188,19 @@ class SINTEFDataset(torch.utils.data.Dataset):
 
     def segm_transform(self, image, mask):
         # Perform transformations on the image and target
+        transform = transforms.ToPILImage()
+        back = transforms.ToTensor()
+        image = transform(image)
+        mask = transform(mask)
         imgTransforms = torch.nn.Sequential(
-            transforms.ColorJitter(random.random(0, 0.5), random.random(
-                0, 0.5), random.random(0, 0.5), random.random(0, 0.5)),
-            transforms.GaussianBlur(6, (0.1, 2.0)),
+            transforms.ColorJitter(random.uniform(0, 0.4), random.uniform(
+                0, 0.4), random.uniform(0, 0.4), random.uniform(0, 0.4)),
+            transforms.GaussianBlur(3, (0.1, 2.0)),
         )
 
-        resize = transforms.Resize(size=(600, 600))
-        image, mask = resize(image), resize(mask) if image.dim(
-        ) != 600 or mask.dim() != 600 else image, mask
+        # resize = transforms.Resize(size=(600, 600))
+        # image, mask = resize(image), resize(mask) if image.dim(
+        # ) != 600 or mask.dim() != 600 else image, mask
 
         if random.random() > 0.5:
             image = imgTransforms(image)
@@ -196,6 +209,8 @@ class SINTEFDataset(torch.utils.data.Dataset):
             image = TF.hflip(image)
             mask = TF.hflip(mask)
 
+        image = back(image)
+        mask = back(mask)
         # Might add vertical flip aswell
         return image, mask
 
