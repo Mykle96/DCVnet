@@ -52,5 +52,5 @@ loaded_test = DataLoader(test, batch_size=5, shuffle=True)
 
 #test_f, test_l = next(iter(loaded_test))
 
-unet = Model(classes=classes, pose_estimation=True)
+unet = Model(classes=classes, pose_estimation=True, save_images=True)
 losses = unet.train(loaded_test, None, epochs=11)

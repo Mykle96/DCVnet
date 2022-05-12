@@ -275,11 +275,7 @@ def dictToArray(hypDict):
 #----------------------#
 
 
-<<<<<<< HEAD
-def visualize_vectorfield(field, keypoint, indx=-1, oneImage = True):
-=======
-def visualize_vectorfield(field, keypoint, indx=5, oneImage=True):
->>>>>>> 60030453903df5ee269ff6d9db124cb2b0445023
+def visualize_vectorfield(field, keypoint, indx=-1, oneImage = True, saveImages=False, img_meta=""):
     '''
     Function to visualize vector field towards a certain keypoint, and plotting all keypoint in subplot
 
@@ -373,7 +369,10 @@ def visualize_vectorfield(field, keypoint, indx=5, oneImage=True):
         if(oneImage):
             plt.imshow(newImg)
 
-        plt.show()
+        if(saveImages):
+            plt.savefig(f"../results/{img_meta}")
+        else:
+            plt.show()
     else:
         pass
 
@@ -418,6 +417,7 @@ def crop_pose_data(image, mask, threshold=0.6):
     for i in range(len(image)):
         # Fetch coordinates of mask wiht a threshold
         coords = np.where(mask[i] >= threshold)[1:3]
+
         # Setting top coordinate of the crop, the largest corner of the mask
         top_y = (min(coords[0]) - 10) if min(coords[0]) > 10 else 0
         top_x = min(coords[1]) - 10 if min(coords[1]) > 10 else 0
