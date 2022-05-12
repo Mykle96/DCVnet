@@ -272,11 +272,11 @@ class Model:
 
         # Save the model
         if name is None:
-            name = self.model_name + f"v.{random.randint(0,10)}"
+            name = self.model_name + f"_v.{random.randint(0,10)}"
         else:
             self.save()
 
-        return losses
+        return epoch_losses
 
     def accuracy(self, image, target, thershold=0.5):
         numCorrect = 0
@@ -441,6 +441,12 @@ class PoseModel:
                     losses.append(loss.item())
                 visualize_vectorfield(predictions, keypoints[index])
 
+        # Save the model
+        if name is None:
+            name = "Pose_network" + f"_v.{random.randint(0,10)}"
+        else:
+            self.save()
+
         return losses
 
     def huberloss_fn(self, prediction, target, delta=0.5):
@@ -470,12 +476,17 @@ class PoseModel:
     def evaluate(self):
         raise NotImplementedError
 
-    def save(self):
-        raise NotImplementedError
+    def save(self, filepath=None, name=None):
+        if filepath is None or not os.path.exists(filepath):
+            filepath = "../models/DVFnet"
 
+        torch.save(self.model.state_dict(), filepath+"/"+name)
+        if self.verbose:
+            print("*"*50)
+            print("Pose Model has been saved!")
+            print("*"*50)
 
 # Method to visualize keypoint prediction and rotation of container, Not implemented ye
-
 
     def show_prediction(self):
         raise NotImplementedError
