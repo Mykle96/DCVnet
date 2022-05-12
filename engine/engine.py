@@ -206,7 +206,7 @@ class Model:
                 print("")
                 # print("AVERAGE DICE: ", "%.6f" % np.sum(dice)/targets.shape[0])
                 print(
-                    f"Average Train Loss for {self.model_name} epoch {epoch +1}: {running_loss}")
+                    f"Average Train Loss for {self.model_name} epoch {epoch +1}: {running_loss/batch_idx+1}")
                 print("")
 
             if self.verbose and (epoch+1) % 10 == 0:
@@ -252,7 +252,7 @@ class Model:
                             # Update sigmoid to softmax
                             pred = torch.sigmoid(
                                 predictions) if loss_fn == torch.nn.CrossEntropyLoss() else predictions
-                            val_dice = dice_score(pred, targets)
+                            val_dice = dice_score(pred, targets, 2)
                             val_loss = loss_fn(pred, targets)
 
                             running_val_loss += val_loss.item() * \
@@ -284,7 +284,7 @@ class Model:
                     print("AVERAGE VAL DICE: ",
                           np.sum(val_dice)/targets.shape[0])
                     print(
-                        f"Average Validation Loss for {self.model_name} epoch {epoch +1}: {running_val_loss}")
+                        f"Average Validation Loss for {self.model_name} epoch {epoch +1}: {running_val_loss/batch_idx+1}")
                     print("")
                 val_losses.append(running_val_loss/batch_idx+1)
 

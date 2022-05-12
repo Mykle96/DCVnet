@@ -30,7 +30,7 @@ Utility file containing a lot of funct ions used across the system
 #----------------------#
 
 
-def dice_score(prediction: Tensor, target: Tensor, classes=None, threshold=0.5, epsilon=1e-6, **kwargs):
+def dice_score(prediction: Tensor, target: Tensor, classes, threshold=0.5, epsilon=1e-6, **kwargs):
     """
     Function for calculating the overlapping area of intersection. The closer to one the greater the overlap and
     subsequently the better the accuracy.
