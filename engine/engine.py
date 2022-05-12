@@ -114,6 +114,7 @@ class Model:
             if self.numClasses > 1:
                 loss_fn = torch.nn.CrossEntropyLoss()
                 print("Loss Function: ", loss_fn)
+
             if self.numClasses == 1:
                 loss_fn = torch.nn.BCEWithLogitsLoss()
                 print("Loss Function: ", loss_fn)
@@ -155,8 +156,8 @@ class Model:
                     # forward
                     with torch.cuda.amp.autocast():
                         predictions = self._model(data)
-                        # If Cross entropy is used, add Softmax on the pred before loss is calculated
-                        pred = torch.softmax(predictions) if isinstance(
+                        # If Cross entropy is used, add Softmax on the pred before loss is calculated, Update sigmoid to softmax
+                        pred = torch.sigmoid(predictions) if isinstance(
                             loss_fn, torch.nn.CrossEntropyLoss()) else predictions
                         loss = loss_fn(pred, targets)
                         # dice = dice_score(pred, targets, self.numClasses)
@@ -201,7 +202,10 @@ class Model:
                 print("")
 
             if self.verbose and (epoch+1) % 10 == 0:
-                self.show_prediction(data, pred)
+                if loss_fn == torch.nn.CrossEntropyLoss:
+                    self.show_prediction(data, pred)
+                else:
+                    self.show_prediction(data, torch.sigmoid(pred))
 
             # ------ VALIDATION LOOP BEGINS -------
 
@@ -227,8 +231,8 @@ class Model:
 
                         if self.segmentation:
                             predictions = self._model(data)
-
-                            pred = torch.softmax(predictions) if isinstance(
+                            # Update sigmoid to softmax
+                            pred = torch.sigmoid(predictions) if isinstance(
                                 loss_fn, torch.nn.CrossEntropyLoss()) else predictions
                             val_dice = dice_score(pred, targets)
                             val_loss = loss_fn(pred, targets)
@@ -267,8 +271,11 @@ class Model:
                 val_losses.append(running_val_loss/batch_idx+1)
 
                 if (epoch+1) % 10 == 0:
+                    if loss_fn == torch.nn.CrossEntropyLoss:
+                        self.show_prediction(data, pred)
+                    else:
+                        self.show_prediction(data, torch.sigmoid(pred))
                     plot_loss(epoch_losses, val_losses, epoch+1)
-                    pass
 
         # Save the model
         if name is None:
