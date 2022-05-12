@@ -54,3 +54,6 @@ loaded_test = DataLoader(test, batch_size=5, shuffle=True)
 
 unet = Model(classes=classes, pose_estimation=True, save_images=True)
 losses = unet.train(loaded_test, None, epochs=11)
+
+dcvnet = PoseModle()
+losses = dcvnet.traing(loaded_test,)

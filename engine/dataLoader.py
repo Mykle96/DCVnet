@@ -6,6 +6,9 @@ import os
 from PIL import Image
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import torchvision.transforms.functional as TF
+from torchvision import transforms
+import random
 
 
 class SINTEFDataLoader(torch.utils.data.DataLoader):
@@ -74,23 +77,30 @@ class SINTEFDataset(torch.utils.data.Dataset):
         # Needs to return a list with the image, mask and keypoints (if pose is true)
         if self.pose:
             image = self.Dir[index][0]
-            mask = self.Dir[index][1]/255
+            mask = self.Dir[index][1]
+            mask[mask != 0.0] = 1.0
             keypoints = self.Dir[index][2]
-        else:
-            image = self.Dir[index][0]
-            mask = self.Dir[index][1]/255
-        #mask[mask != 0] = 255
-        # Need to have default transformations if transformations are set to NONE
-        if self.transform is not None:
-            raise NotImplementedError(
-                "Custom Transformations are not handled yet! set to None")
-        else:
-            # Check if the images are of the dimentions of 600x600, if not set them to that size
-            pass
-
-        if self.pose:
+            # Need to have default transformations if transformations are set to NONE
+            if self.transform is not None:
+                raise NotImplementedError(
+                    "Custom Transformations are not handled yet! set to None")
+            else:
+                # Check if the images are of the dimentions of 600x600, if not set them to that size
+                pass
             return image, mask, keypoints
         else:
+            image = self.Dir[index][0]
+            mask = self.Dir[index][1]
+            mask[mask != 0.0] = 1.0
+
+            # Need to have default transformations if transformations are set to NONE
+            if self.transform is not None:
+                raise NotImplementedError(
+                    "Custom Transformations are not handled yet! set to None")
+            else:
+                # Check if the images are of the dimentions of 600x600, if not set them to that size
+                image, mask = self.segm_transform(image, mask)
+
             return image, mask
 
     def formatStringToDict(self, string):
@@ -166,6 +176,28 @@ class SINTEFDataset(torch.utils.data.Dataset):
             assert numImages == numMasks, f"The number of masks does not match the number of images! Images: {numImages}, Masks: {numMasks}"
 
             return [[a, b] for a, b in zip(images, masks)]
+
+    def segm_transform(self, image, mask):
+        # Perform transformations on the image and target
+        imgTransforms = torch.nn.Sequential(
+            transforms.ColorJitter(random.random(0, 0.5), random.random(
+                0, 0.5), random.random(0, 0.5), random.random(0, 0.5)),
+            transforms.GaussianBlur(6, (0.1, 2.0)),
+        )
+
+        resize = transforms.Resize(size=(600, 600))
+        image, mask = resize(image), resize(mask) if image.dim(
+        ) != 600 or mask.dim() != 600 else image, mask
+
+        if random.random() > 0.5:
+            image = imgTransforms(image)
+
+        elif random.random() > 0.5:
+            image = TF.hflip(image)
+            mask = TF.hflip(mask)
+
+        # Might add vertical flip aswell
+        return image, mask
 
 
 class SegmentationDataset(torch.utils.data.Dataset):
