@@ -81,8 +81,8 @@ def plot_loss(train_loss=None, val_loss=None, epochs=None, name=None):
     assert len(train_loss) and len(val_loss) is not 0
     fig = plt.figure(figsize=(10, 5))
     plt.title(f"{name} Training and Validation Loss")
-    plt.plot(epochs, train_loss, 'bo-', label='train loss')
-    plt.plot(epochs, val_loss, 'ro-', label='validation loss')
+    plt.plot(train_loss, 'bo-', label='train loss')
+    plt.plot(val_loss, 'ro-', label='validation loss')
     plt.legend(['Train', 'Valid'])
     plt.show()
 

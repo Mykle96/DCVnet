@@ -200,7 +200,7 @@ class Model:
                     f"Average Train Loss for {self.model_name} epoch {epoch +1}: {running_loss}")
                 print("")
 
-            if self.verbose and epoch+1 % 10 == 0:
+            if self.verbose and (epoch+1) % 10 == 0:
                 self.show_prediction(data, pred)
 
             # ------ VALIDATION LOOP BEGINS -------
@@ -255,18 +255,19 @@ class Model:
                             posePrediction = self.poseNetwork.train(
                                 poseData, trainPoseData[0], trainPoseData[1], phase=False)
 
-                            # If epoch is 10, print a prediction
-                    val_losses.append(running_val_loss/batch_idx+1)
-                    if self.verbose:
-                        print("")
-                        print("AVERAGE VAL DICE: ",
-                              np.sum(val_dice)/targets.shape[0])
-                        print(
-                            f"Average Validation Loss for {self.model_name} epoch {epoch +1}: {running_val_loss}")
-                        print("")
+                # If epoch is 10, print a prediction
 
-                if epoch+1 % 10 == 0:
-                    # plot the losses
+                if self.verbose:
+                    print("")
+                    print("AVERAGE VAL DICE: ",
+                          np.sum(val_dice)/targets.shape[0])
+                    print(
+                        f"Average Validation Loss for {self.model_name} epoch {epoch +1}: {running_val_loss}")
+                    print("")
+                val_losses.append(running_val_loss/batch_idx+1)
+
+                if (epoch+1) % 10 == 0:
+                    plot_loss(epoch_losses, val_losses, epoch+1)
                     pass
 
         # Save the model
@@ -474,6 +475,7 @@ class PoseModel:
 
 
 # Method to visualize keypoint prediction and rotation of container, Not implemented ye
+
 
     def show_prediction(self):
         raise NotImplementedError
