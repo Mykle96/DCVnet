@@ -391,6 +391,25 @@ def visualize_vectorfield(field, keypoint, indx=-1, oneImage=True, saveImages=Fa
 # TRAINING UTILS
 #----------------------#
 
+def gpu_check():
+    """
+
+    Checks for multiple GPUs on a system. 
+    Returns True if more than one is found, else False.
+
+    """
+    print("GPU found:")
+    print("----------------------------------------------------------")
+    print('__CUDNN VERSION:', torch.backends.cudnn.version())
+    print('__Number of CUDA Devices:', torch.cuda.device_count())
+    print('__CUDA Device Name:', torch.cuda.get_device_name(0))
+    print('__CUDA Device Total Memory [GB]:', torch.cuda.get_device_properties(
+        0).total_memory/1e9)
+    print("----------------------------------------------------------")
+    multi_gpu = True if torch.cuda.device_count() > 1 else False
+    return multi_gpu
+
+
 def visualize_croped_data(crop_image, crop_mask):
     # function for visualizing the croped image and mask
 
@@ -435,8 +454,8 @@ def crop_pose_data(image, mask, threshold=0.6):
         # setting the width and height accrording to the biggest corner of the mask
         height = max(coords[0])-top_y + 20 if max(coords[0]
                                                   )-top_y < 580 else max(coords[0])-top_y
-        width = max(coords[1]) - top_x + \
-            20 if max(coords[1]) - top_x < 580 else max(coords[1]) - top_x
+        width = max(coords[1]) - top_x + 20 if max(coords[1]
+                                                   ) - top_x < 580 else max(coords[1]) - top_x
 
         # make sure the dimentions are even numbers for the neural network
         if not height % 2 == 0:

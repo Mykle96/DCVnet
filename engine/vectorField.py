@@ -23,7 +23,6 @@ class VectorField:
             image: Image tensor with shape [batch size, 3, dimensionX, dimensionY]
             keypoints: Keypoint tensor with shape [batch size, number of keypoints, keypoint coordinates]
         """
-        # TODO: Does this class really need to be inizialized with the target, image and keypoints?
         self.target = target
         self.image = image
         self.classnames = classnames
@@ -43,7 +42,7 @@ class VectorField:
             print(f"---> {numKeypoints} keypoints registrered, for the image")
             print("")
 
-    def calculate_vector_field(self, targets, images, keypoints, coordInfo):
+    def calculate_vector_field(self, targets, images, keypoints, coordInfo, verbose=False):
         """
         Function for calculating the unit direction vector field given the mask and image.
         This serves as the ground truth for the network durning keypoint localization training.
@@ -87,7 +86,11 @@ class VectorField:
 
             vectorFieldList = []
             print("Calculating unit vector fields")
-            for i in tqdm(range(numImages)):
+
+            iterable = tqdm(numImages, position=0,
+                            leave=True) if self.verbose else numImages
+
+            for i in range(iterable):
                 # generate local variables
 
                 image = images[i].permute(0, 2, 3, 1).cpu().numpy()
