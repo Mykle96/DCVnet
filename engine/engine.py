@@ -109,6 +109,12 @@ class Model:
         else:
             raise ValueError(
                 f"The optimizer chosen: {optimizer}, is either not added yet or invalid.. please use SGD or Adam")
+        # Adding a learning rate scheduler
+         lr_scheduler = torch.optim.lr_scheduler.StepLR(
+            optimizer, step_size=lr_step_size, gamma=gamma)
+
+        
+        
         # Initialize the loss function
         if loss_fn is None:
             if self.numClasses > 1:
@@ -244,7 +250,8 @@ class Model:
                     else:
                         self.show_prediction(data, torch.sigmoid(pred))
                     plot_loss(epoch_losses, val_losses, epoch+1)
-
+                        # Update the learning rate every few epochs
+            lr_scheduler.step()
         # Save the model
         if name is None:
             name = self.model_name + f"_v.{random.randint(0,10)}"
@@ -392,6 +399,9 @@ class VectorModel():
             raise ValueError(
                 f"The optimizer chosen: {optimizer}, is either not added yet or invalid.. please use SGD or Adam")
 
+        # Add learning rate scheduler
+        lr_scheduler = torch.optim.lr_scheduler.StepLR(
+            optimizer, step_size=lr_step_size, gamma=gamma)
         # Check for loss functions
         if loss_fn is not None:
             loss_fn = loss_fn
@@ -526,6 +536,8 @@ class VectorModel():
             print(
                 f"Average Train Loss for {self.name} epoch {epoch +1}: {running_val_loss/index+1}")
             print("")
+            # update lr
+            lr_scheduler.step()
             if (epoch+1) % 10 == 0:
                 # plot the loss and validation
                 plot_loss(train_loss=train_losses,
