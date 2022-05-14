@@ -25,9 +25,17 @@ Once your virtual environment is activated, install the required packages by eit
 ```Bash
 pip3 install -r requirements
 #or
-coonda install -r requirements
+conda install -r requirements
 ```
 
 (Make sure you have navigated inside the DVFnet folder)
 
-Once this finishes installing you should have all the necessary packages to run the source code.
+After this process finishes installing you should have all the necessary packages to run the source code.
+
+## Dataset
+
+## Model
+
+## Demo
+
+## Citation
