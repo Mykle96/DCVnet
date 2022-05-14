@@ -2,17 +2,17 @@ import torch
 from torch.utils.data import DataLoader
 
 # Local imports
-from engine import Model
+from engine import Model, VectorModel
 from dataLoader import SINTEFDataset
 from utils.utils import *
-from pose import VectorModel
+
 
 # ----- MODELS -----
 # choose which model too use: True --> VectorModel, False --> Segmentation
 POSE = True
 
 # ----- HYPERPARAMETERS ------
-BATCH_SIZE = 32
+BATCH_SIZE = 1
 VAL_BATCH_SIZE = 15
 CLASSES = ["container"]
 EPOCHS = 150

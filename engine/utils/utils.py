@@ -416,7 +416,7 @@ def visualize_croped_data(crop_image, crop_mask):
     crop = torch.squeeze(crop_image) if crop_image.dim() > 3 else crop_image
     crop_mask = torch.squeeze(crop_mask) if crop_mask.dim() > 2 else crop_mask
     crop = crop*255
-    crop_mask = crop_mask*255
+    crop_mask = crop_mask  # only one channel --> PIL sets the mode from float values
     crop_mask_img = torchvision.transforms.ToPILImage()(crop_mask)
     img = torchvision.transforms.ToPILImage()(
         crop) if crop.dim() == 3 else torchvision.transforms.ToPILImage()(crop)
@@ -479,6 +479,7 @@ def crop_pose_data(image, mask, threshold=0.6):
 
     # Visualize the last image and mask
     visualize_croped_data(crop, crop_mask)
+    print("CROP S: ", crop_mask.shape)
     # List of lists
     poseData = [cropedImages, cropedMask, coordInfo]
 

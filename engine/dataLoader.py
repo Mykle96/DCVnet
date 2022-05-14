@@ -91,6 +91,7 @@ class SINTEFDataset(torch.utils.data.Dataset):
 
             image = image.transpose(2, 0, 1)
             mask = np.expand_dims(mask, axis=0)
+            print("MASK ", mask.shape)
             return image, mask, keypoints
 
         else:
@@ -105,7 +106,6 @@ class SINTEFDataset(torch.utils.data.Dataset):
             else:
                 # Check if the images are of the dimentions of 600x600, if not set them to that size
                 image, mask = self.segm_transform(image, mask)
-
             return image, mask
         # If no transformations, reshape the numpy arrays and expand the mask with one dimention
         image = image.transpose(2, 0, 1)

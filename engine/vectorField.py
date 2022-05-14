@@ -13,7 +13,7 @@ DEFAULT_CLASS = "container"
 
 class VectorField:
 
-    def __init__(self, target, image, keypoints, classnames=DEFAULT_CLASS):
+    def __init__(self, target, image, keypoints, classnames=DEFAULT_CLASS, verbose=False):
         """
         Class for generating a vector field of unit direction vectors from an arbitrary pixel to a respectiv keypoint
         located on a given object. Creates a vector field for each keypoint.
@@ -25,24 +25,26 @@ class VectorField:
         """
         self.target = target
         self.image = image
+        self.verbose = verbose
         self.classnames = classnames
         self.keypoints = keypoints
         numKeypoints = keypoints.shape[1]
 
         assert keypoints is not None, f"A list of keypoints are need for generating a vector field! Please ensure the dataset contains keypoints or disable pose estimation."
+        if verbose:
+            if numKeypoints < 8:
+                print(
+                    f"!!! An insufficent amount of keypoints,({numKeypoints}), detected for class {DEFAULT_CLASS}, this may have an impact on the final loss of the model if the number is not intentional.")
+            elif numKeypoints > 10:
+                print(
+                    f"!!! An abundance of keypoints,({numKeypoints}), detected for class {DEFAULT_CLASS}, if not intentional this may cause obscurity in the final pose estimation.")
+            else:
+                print("")
+                print(
+                    f"---> {numKeypoints} keypoints registrered, for the image")
+                print("")
 
-        if numKeypoints < 8:
-            print(
-                f"!!! An insufficent amount of keypoints,({numKeypoints}), detected for class {DEFAULT_CLASS}, this may have an impact on the final loss of the model if the number is not intentional.")
-        elif numKeypoints > 10:
-            print(
-                f"!!! An abundance of keypoints,({numKeypoints}), detected for class {DEFAULT_CLASS}, if not intentional this may cause obscurity in the final pose estimation.")
-        else:
-            print("")
-            print(f"---> {numKeypoints} keypoints registrered, for the image")
-            print("")
-
-    def calculate_vector_field(self, targets, images, keypoints, coordInfo, verbose=False):
+    def calculate_vector_field(self, targets, images, keypoints, coordInfo):
         """
         Function for calculating the unit direction vector field given the mask and image.
         This serves as the ground truth for the network durning keypoint localization training.
@@ -85,7 +87,6 @@ class VectorField:
                 self.update_keypoint(keypoints, coordInfo))
 
             vectorFieldList = []
-            print("Calculating unit vector fields")
 
             iterable = tqdm(numImages, position=0,
                             leave=True) if self.verbose else numImages
@@ -116,7 +117,7 @@ class VectorField:
 
                 vectorFieldList.append(unitVectors)
 
-        return (np.array(vectorFieldList), new_keypoints)
+        return (vectorFieldList, new_keypoints)
 
     def find_unit_vector(self, vectors, pixel, keypoints, imgDimentions):
         """
@@ -160,7 +161,7 @@ class VectorField:
         '''
 
         if not isinstance(field, np.ndarray):
-            field = field.numpy()
+            field = np.array(field)
         keypoint = keypoint.numpy()
 
         # Get vector field and keypoints for a specfic image

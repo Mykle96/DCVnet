@@ -110,11 +110,9 @@ class Model:
             raise ValueError(
                 f"The optimizer chosen: {optimizer}, is either not added yet or invalid.. please use SGD or Adam")
         # Adding a learning rate scheduler
-         lr_scheduler = torch.optim.lr_scheduler.StepLR(
+        lr_scheduler = torch.optim.lr_scheduler.StepLR(
             optimizer, step_size=lr_step_size, gamma=gamma)
 
-        
-        
         # Initialize the loss function
         if loss_fn is None:
             if self.numClasses > 1:
@@ -250,7 +248,7 @@ class Model:
                     else:
                         self.show_prediction(data, torch.sigmoid(pred))
                     plot_loss(epoch_losses, val_losses, epoch+1)
-                        # Update the learning rate every few epochs
+                    # Update the learning rate every few epochs
             lr_scheduler.step()
         # Save the model
         if name is None:
@@ -258,7 +256,7 @@ class Model:
         else:
             name = name
         if self.pose_estimation:
-            self.PoseModel.save()
+            self.VectorModel.save()
 
         self.save(name=name)
         return epoch_losses
@@ -418,6 +416,7 @@ class VectorModel():
 
             if self.verbose:
                 print("Starting iteration over training dataset")
+                print("and calculating unit vector fields")
                 print("")
 
             iterable = tqdm(dataset, position=0,
@@ -443,15 +442,14 @@ class VectorModel():
                 trainPoseData = vectorfield.calculate_vector_field(
                     poseData[1], poseData[0], keypoints, poseData[2])
 
-                gtVf = trainPoseData[0]
+                gtVfList = trainPoseData[0]
                 keypoints = trainPoseData[1]
 
                 for index, image in enumerate(poseData[0]):
                     assert torch.is_tensor(
                         image), f"The image is not a torch tensor!"
-
                     # Convert one by one the vectorfield gt to Tensor and rearrange so that the channels come first, send to the right device
-                    gtVf = torch.tensor(gtVf[index]).permute(
+                    gtVf = torch.tensor(gtVfList[index]).squeeze().permute(
                         2, 0, 1).to(device=DEVICE, dtype=torch.float32)
 
                     with torch.cuda.amp.autocast():
@@ -495,6 +493,7 @@ class VectorModel():
                     if self.verbose:
                         print("="*50)
                         print("Starting iteration over validation dataset")
+                        print("and calculating unit vector fields")
                         print("")
 
                     iterable = tqdm(dataset, position=0,
@@ -510,7 +509,7 @@ class VectorModel():
                         trainPoseData = vectorfield.calculate_vector_field(
                             poseData[1], poseData[0], keypoints, poseData[2])
 
-                        gtVf = trainPoseData[0]
+                        gtVfList = trainPoseData[0]
                         keypoints = trainPoseData[1]
 
                         for index, image in enumerate(poseData[0]):
@@ -518,7 +517,7 @@ class VectorModel():
                                 image), f"The image is not a torch tensor!"
 
                             # Convert one by one the vectorfield gt to Tensor and rearrange so that the channels come first, send to the right device
-                            gtVf = torch.tensor(gtVf[index]).permute(
+                            gtVf = torch.tensor(gtVfList[index]).permute(
                                 2, 0, 1).to(device=DEVICE, dtype=torch.float32)
 
                             predictions = self.model(image)
