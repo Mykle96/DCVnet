@@ -604,7 +604,7 @@ class VectorModel():
 
     def save(self, filepath=None, name=None):
         if name is None:
-            name = "Pose_network" + f"_v.{random.randint(0,10)}"
+            name = f"{name}" + f"_v.{random.randint(0,10)}"
         else:
             name = name
         if filepath is None or not os.path.exists(filepath):
