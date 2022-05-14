@@ -387,7 +387,7 @@ class VectorModel():
         if val_dataset is not None and not isinstance(val_dataset, DataLoader):
             val_dataset = DataLoader(val_dataset, shuffle=False)
 
-        if self._device == torch.device('cpu'):
+        if self.device == torch.device('cpu'):
             print("")
             warnings.warn('It looks like you\'re training your model on a CPU. '
                           'Consider switching to a GPU as this is not recommended.', RuntimeWarning)
