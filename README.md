@@ -16,7 +16,7 @@ First make sure you have initiated a virtual environment. Anaconda was used for 
 ```Bash
 conda -V #Check that conda is installed and is in your PATH
 conda update conda #Check for latest conda
-conda create -n yourenvname python=3.8.5 anaconda #Create your virtual environment - with prefered python
+conda create -n yourenvname python=3.8.5 anaconda #Create your virtual environment - with python 3.8.5
 conda activate yourenvname
 ```
 
@@ -27,3 +27,7 @@ pip3 install -r requirements
 #or
 coonda install -r requirements
 ```
+
+(Make sure you have navigated inside the DVFnet folder)
+
+Once this finishes installing you should have all the necessary packages to run the source code.
