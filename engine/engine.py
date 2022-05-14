@@ -376,7 +376,7 @@ class VectorModel():
         if self.model == self.DEFAULT:
             self.model = DCVnet()
 
-    def train(self, dataset, val_dataset=None, epochs=None, learning_rate=0.005, optimizer=SGD, loss_fn=None, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=SCALER, name=None):
+    def train(self, dataset, val_dataset=None, epochs=None, learning_rate=0.005, optimizer=SGD, loss_fn=None, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=SCALER):
 
         DEVICE = self.device
 
@@ -566,7 +566,7 @@ class VectorModel():
             if (epoch+1) % 10 == 0:
                 # plot the loss and validation
                 plot_loss(train_loss=train_losses,
-                          val_loss=val_losses, epochs=epoch+1, name=name=self.name)
+                          val_loss=val_losses, epochs=epoch+1, name=self.name)
         # Save model
         if name is None:
             name = self.name = name + f"_v.{random.randint(0,10)}"
