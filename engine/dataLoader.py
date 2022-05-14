@@ -204,12 +204,12 @@ class SINTEFDataset(torch.utils.data.Dataset):
         if random.random() > 0.5:
             image = imgTransforms(image)
 
-        elif random.random() > 0.5:
+        image = back(image)
+        mask = back(mask)
+        if random.random() > 0.5:
             image = TF.hflip(image)
             mask = TF.hflip(mask)
 
-        image = back(image)
-        mask = back(mask)
         # Might add vertical flip aswell
         return image, mask
 
