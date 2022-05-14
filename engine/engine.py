@@ -223,16 +223,15 @@ class Model:
                         targets = element[1].to(
                             device=DEVICE, dtype=torch.float32)
 
-                        if self.segmentation:
-                            predictions = self._model(data)
-                            # Update sigmoid to softmax
-                            pred = torch.sigmoid(
-                                predictions) if loss_fn == torch.nn.CrossEntropyLoss() else predictions
-                            val_dice = dice_score(pred, targets, 2)
-                            val_loss = loss_fn(pred, targets)
+                        predictions = self._model(data)
+                        # Update sigmoid to softmax
+                        pred = torch.sigmoid(
+                            predictions) if loss_fn == torch.nn.CrossEntropyLoss() else predictions
+                        val_dice = dice_score(pred, targets, 2)
+                        val_loss = loss_fn(pred, targets)
 
-                            running_val_loss += val_loss.item() * \
-                                predictions.shape[0]
+                        running_val_loss += val_loss.item() * \
+                            predictions.shape[0]
 
                 val_losses.append(running_val_loss/batch_idx+1)
                 print("")
