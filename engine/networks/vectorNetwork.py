@@ -19,12 +19,12 @@ class DoubleDilatedConv(torch.nn.Module):
             nn.Conv2d(in_channels, out_channels, kernel_size=9,
                       stride=1, padding=1, dilation=2, bias=False),
             nn.BatchNorm2d(out_channels),
-            nn.LeakyReLU(inplace=True),
+            nn.LeakyReLU(),
             nn.Dropout(p=0.2),
             nn.Conv2d(out_channels, out_channels, kernel_size=9,
                       stride=1, padding=1, dilation=2, bias=False),
             nn.BatchNorm2d(out_channels),
-            nn.LeakyReLU(inplace=True),
+            nn.LeakyReLU(),
             nn.Dropout(p=0.2),
         )
 
@@ -39,7 +39,7 @@ class DilatedConv(torch.nn.Module):
             nn.Conv2d(in_channels, out_channels, kernel_size=9,
                       stride=1, padding=1, dilation=2, bias=False),
             nn.BatchNorm2d(out_channels),
-            nn.LeakyReLU(inplace=True),
+            nn.LeakyReLU(),
             nn.Dropout(p=0.2),
         )
 
@@ -54,7 +54,7 @@ class Conv(torch.nn.Module):
             nn.Conv2d(in_channels, out_channels, kernel_size=3,
                       stride=1, padding=1, bias=False),
             nn.BatchNorm2d(out_channels),
-            nn.LeakyReLU(inplace=True),
+            nn.LeakyReLU(),
             nn.Dropout(p=0.2),
         )
 
