@@ -184,11 +184,6 @@ class Model:
                 # avg_train_loss = train_loss/predictions.shape[0]
                 running_loss += loss.item()*predictions.shape[0]
 
-            if self.save_images and (epoch+1) % 50 == 0:
-                img_meta = f"Epoch_{epoch},b_indx_{batch_idx}"
-                vectorfield.visualize_gt_vectorfield(
-                    trainPoseData[0], trainPoseData[1], imgIndx=-1, saveImages=True, img_meta=img_meta)
-
             # The average loss of the epoch for segmentation
             epoch_losses.append(running_loss/batch_idx+1)
             train_loss.append(running_loss/batch_idx+1)
