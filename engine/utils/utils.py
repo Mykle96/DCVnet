@@ -84,7 +84,8 @@ def plot_loss(train_loss=None, val_loss=None, epochs=None, name=None):
     plt.plot(train_loss, 'bo-', label='train loss')
     plt.plot(val_loss, 'ro-', label='validation loss')
     plt.legend(['Train', 'Valid'])
-    plt.show()
+    path = 'DCVnet/results'
+    plt.savefig(path + "/" + "_plot_epoch_" + f"{epochs}")
 
 
 def validation_loss():

@@ -138,9 +138,6 @@ class Model:
             loss_fn = loss_fn
 
         # LOAD CHECKPOINT
-
-        # Set model to the correct device
-        self._model.to(device=DEVICE)
         train_loss = []
         epoch_losses = []
         losses = []
