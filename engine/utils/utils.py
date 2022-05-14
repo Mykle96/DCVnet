@@ -400,15 +400,17 @@ def gpu_check():
 
     """
     print("GPU found:")
+    num_gpu = torch.cuda.device_count()
     print("----------------------------------------------------------")
     print('__CUDNN VERSION:', torch.backends.cudnn.version())
-    print('__Number of CUDA Devices:', torch.cuda.device_count())
+    print('__Number of CUDA Devices:', num_gpu)
     print('__CUDA Device Name:', torch.cuda.get_device_name(0))
     print('__CUDA Device Total Memory [GB]:', torch.cuda.get_device_properties(
         0).total_memory/1e9)
     print("----------------------------------------------------------")
-    multi_gpu = True if torch.cuda.device_count() > 1 else False
-    return multi_gpu
+    multi_gpu = True if num_gpu > 1 else False
+
+    return multi_gpu, num_gpu
 
 
 def visualize_croped_data(crop_image, crop_mask):
