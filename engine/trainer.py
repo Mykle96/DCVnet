@@ -38,7 +38,7 @@ if POSE:
 
     # ------ START TRAINING ------
     # vector
-    vectorNetwork = VectorModel()
+    vectorNetwork = VectorModel(name="DVFnet_v.1")
     vectorLosses = vectorNetwork.train(
         dataset=POSE_TRAIN, val_dataset=POSE_VAL_DATA, epochs=EPOCHS)
 
@@ -53,7 +53,7 @@ else:
 
     # ------ START TRAINING ------
     # segment
-    networks = Model(classes=CLASSES)
+    networks = Model(classes=CLASSES, name="UNET_v.1")
     losses = networks.train(dataset=TRAIN,
                             val_dataset=VAL,
                             epochs=EPOCHS,

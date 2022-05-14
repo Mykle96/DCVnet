@@ -42,7 +42,7 @@ class Model:
     SCALER = torch.cuda.amp.GradScaler()
     default_classes = ['container']
 
-    def __init__(self, model=DEFAULT, classes=default_classes, device=None, save_images=False, verbose=True):
+    def __init__(self, model=DEFAULT, classes=default_classes, device=None, name=None, save_images=False, verbose=True):
         # initialize the model class
         # If verbose is selected give more feedback of the process
         self.model_name = model
@@ -54,6 +54,12 @@ class Model:
         self.multiple_gpu = bool()
         self.num_gpu = int()
         self.device_ids = []
+
+        # Set name of model
+        if self.name is None:
+            self.name = self.model
+        else:
+            self.name = name
 
         # Check for devices and set them
         if self._device is None:
@@ -144,7 +150,7 @@ class Model:
         val_losses = []
 
         # ----- TRAINING LOOP BEGINS -----
-        print(f"Beginning traning with {self.model_name} network.")
+        print(f"Beginning traning with {self.name} network.")
         for epoch in tqdm(range(epochs)):
 
             print(f'Epoch {epoch + 1} of {epochs}')
@@ -191,20 +197,20 @@ class Model:
             if self.verbose:
                 print("")
                 print(
-                    f"Average Train Loss for {self.model_name} epoch {epoch +1}: {running_loss/batch_idx+1}")
+                    f"Average Train Loss for {self.name} epoch {epoch +1}: {running_loss/batch_idx+1}")
                 print("")
 
             if self.verbose and (epoch+1) % 10 == 0:
                 if loss_fn == torch.nn.CrossEntropyLoss():
                     if(self.save_images):
-                        img_meta = f"Epoch_{epoch}"
+                        img_meta = f"{self.name}_Training_pred_Epoch_{epoch}"
                         self.show_prediction(
                             data, pred, save_images=True, img_meta=img_meta)
                     else:
                         self.show_prediction(data, pred)
                 else:
                     if(self.save_images):
-                        img_meta = f"unet_Training_pred_Epoch_{epoch}"
+                        img_meta = f"{self.name}_Training_pred_Epoch_{epoch}"
                         self.show_prediction(data, torch.sigmoid(
                             pred), save_images=True, img_meta=img_meta)
                     else:
@@ -246,20 +252,25 @@ class Model:
                 print("AVERAGE VAL DICE: ",
                       np.sum(val_dice)/targets.shape[0])
                 print(
-                    f"Average Validation Loss for {self.model_name} epoch {epoch +1}: {running_val_loss/batch_idx+1}")
+                    f"Average Validation Loss for {self.name} epoch {epoch +1}: {running_val_loss/batch_idx+1}")
                 print("")
 
                 if (epoch+1) % 10 == 0:
                     if loss_fn == torch.nn.CrossEntropyLoss():
-                        self.show_prediction(data, pred)
+                        img_meta = f"{self.name}_Val_pred_Epoch_{epoch}"
+                        self.show_prediction(
+                            data, pred, save_images=True, img_meta=img_meta)
                     else:
-                        self.show_prediction(data, torch.sigmoid(pred))
-                    plot_loss(epoch_losses, val_losses, epoch+1)
+                        img_meta = f"{self.name}_Val_pred_Epoch_{epoch}"
+                        self.show_prediction(data, torch.sigmoid(
+                            pred), save_images=True, img_meta=img_meta)
+                    plot_loss(epoch_losses, val_losses,
+                              epoch+1, name=self.name)
                     # Update the learning rate every few epochs
             lr_scheduler.step()
         # Save the model
         if name is None:
-            name = self.model_name + f"_v.{random.randint(0,10)}"
+            name = self.name + f"_v.{random.randint(0,10)}"
         else:
             name = name
         self.save(name=name)
@@ -486,7 +497,7 @@ class VectorModel():
                             trainPoseData[0], trainPoseData[1], imgIndx=-1)
 
                     if self.save_images and (batch_idx+1) % 25 == 0:
-                        img_meta = f"Epoch_{epoch},b_indx_{batch_idx}"
+                        img_meta = f"{self.name}_gtVf_Epoch_{epoch},b_indx_{batch_idx}"
                         vectorfield.visualize_gt_vectorfield(
                             trainPoseData[0], trainPoseData[1], imgIndx=-1, saveImages=True, img_meta=img_meta)
 
@@ -496,7 +507,7 @@ class VectorModel():
                 f"Average Train Loss for {self.name} epoch {epoch +1}: {running_loss/(index+1)}")
             print("")
             if self.save_images and epoch % 10 == 0:
-                img_meta = f"Epoch_{epoch},b_indx_{index}"
+                img_meta = f"{self.name}_train_Epoch_{epoch},b_indx_{index}"
                 visualize_vectorfield(
                     predictions, keypoints[index], saveImages=True, img_meta=img_meta)
 
@@ -542,7 +553,7 @@ class VectorModel():
                             running_val_loss += loss.item()
 
                     if self.save_images:
-                        img_meta = f"Epoch_{epoch},batch_indx_{index}"
+                        img_meta = f"{self.name}_valid_Epoch_{epoch},batch_indx_{index}"
                         visualize_vectorfield(
                             predictions, keypoints[index], saveImages=True, img_meta=img_meta)
                 val_losses.append(running_val_loss/index+1)
@@ -555,10 +566,10 @@ class VectorModel():
             if (epoch+1) % 10 == 0:
                 # plot the loss and validation
                 plot_loss(train_loss=train_losses,
-                          val_loss=val_losses, epochs=epoch+1)
+                          val_loss=val_losses, epochs=epoch+1, name=name=self.name)
         # Save model
         if name is None:
-            name = self.model_name + f"_v.{random.randint(0,10)}"
+            name = self.name = name + f"_v.{random.randint(0,10)}"
         else:
             name = name
         self.save(name=name)
