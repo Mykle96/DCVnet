@@ -5,9 +5,9 @@ Science and Technology.
 
 The code renderes a pipline for calculating the pose of an object from a singel RGB-picture using their mask and a unit vector fields to approximate each keypoint linked to the respective object.
 
-# Installation
+## Installation
 
-1. Virtual Environment
+### 1. Virtual Environment
 
 First make sure you have initiated a virtual environment. Anaconda was used for this project and can be initiated by running the following commands:
 
@@ -24,8 +24,6 @@ Once your virtual environment is activated, install the required packages by eit
 
 ```Bash
 pip3 install -r requirements
-
 #or
-
 coonda install -r requirements
 ```
