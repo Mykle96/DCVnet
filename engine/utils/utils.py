@@ -479,7 +479,7 @@ def crop_pose_data(image, mask, threshold=0.6):
 
     # Visualize the last image and mask
     visualize_croped_data(crop, crop_mask)
-    print("CROP S: ", crop_mask.shape)
+
     # List of lists
     poseData = [cropedImages, cropedMask, coordInfo]
 

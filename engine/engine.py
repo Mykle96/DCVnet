@@ -46,19 +46,23 @@ class Model:
         # initialize the model class
         # If verbose is selected give more feedback of the process
         self.model_name = model
-        self.segmentation = segmentation
-        self.pose_estimation = pose_estimation
+        self._device = device
         self.verbose = verbose
         self.save_images = save_images
         self.classes = classes
         self.numClasses = len(classes)
         self.multiple_gpu = bool()
+        self.num_gpu = int()
+        self.device_ids = []
 
         # Check for devices and set them
         if self._device is None:
             if torch.cuda.is_available():
                 self._device = torch.device("cuda")
-                self.multiple_gpu = gpu_check()
+                self.multiple_gpu, self.num_gpu = gpu_check()
+                for i in range(self.num_gpu):
+                    self.device_ids.append(i)
+
                 torch.cuda.empty_cache()
             else:
                 self._device = torch.device("cpu")
@@ -71,7 +75,7 @@ class Model:
     def train(self, dataset, val_dataset=None, epochs=150, learning_rate=0.005, optimizer=ADAM, loss_fn=None, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=SCALER, name=None):
         DEVICE = self._device
 
-        if self._device == torch.device('cpu'):
+        if DEVICE == torch.device('cpu'):
             print("")
             warnings.warn('It looks like you\'re training your model on a CPU. '
                           'Consider switching to a GPU as this is not recommended.', RuntimeWarning)
@@ -83,7 +87,14 @@ class Model:
                 if self.verbose:
                     print(
                         "Multiple GPUs registered, initiating Distributed Data Parallel")
-                self.model = nn.parallel.DistributedDataParallel(self.model)
+                    #self.model = nn.parallel.DistributedDataParallel(self.model)
+                self._model = nn.DataParallel(
+                    self._model, device_ids=self.device_ids)
+                DEVICE = f"{DEVICE}"+':'+f"{self._model.device_ids[0]}"
+                self._model.to(device=DEVICE)
+            else:
+                # If not --> set model to device
+                self._model.to(device=DEVICE)
 
         # Check if the dataset is converted or not, if not initiate, also check for any validation sets.
         assert dataset is not None, "No dataset was received, make sure to input a dataset"
@@ -147,7 +158,6 @@ class Model:
 
             if self.verbose:
                 print('Starting iteration over training dataset')
-                print("and generating pose data") if self.pose_estimation else print("")
 
             iterable = tqdm(dataset, position=0,
                             leave=True) if self.verbose else dataset
@@ -177,6 +187,11 @@ class Model:
                 # avg_train_loss = train_loss/predictions.shape[0]
                 running_loss += loss.item()*predictions.shape[0]
 
+            if self.save_images and (epoch+1) % 50 == 0:
+                img_meta = f"Epoch_{epoch},b_indx_{batch_idx}"
+                vectorfield.visualize_gt_vectorfield(
+                    trainPoseData[0], trainPoseData[1], imgIndx=-1, saveImages=True, img_meta=img_meta)
+
             # The average loss of the epoch for segmentation
             epoch_losses.append(running_loss/batch_idx+1)
             train_loss.append(running_loss/batch_idx+1)
@@ -197,7 +212,7 @@ class Model:
                         self.show_prediction(data, pred)
                 else:
                     if(self.save_images):
-                        img_meta = f"Epoch_{epoch}"
+                        img_meta = f"unet_Training_pred_Epoch_{epoch}"
                         self.show_prediction(data, torch.sigmoid(
                             pred), save_images=True, img_meta=img_meta)
                     else:
@@ -255,9 +270,6 @@ class Model:
             name = self.model_name + f"_v.{random.randint(0,10)}"
         else:
             name = name
-        if self.pose_estimation:
-            self.VectorModel.save()
-
         self.save(name=name)
         return epoch_losses
 
@@ -303,13 +315,14 @@ class Model:
         pred.set_title("Prediction")
         pred.imshow(prediction)
         if save_images:
-            plt.savefig(f"../results/{img_meta}")
+            path = 'DCVnet/results'
+            plt.savefig(path + "/" + img_meta+".png")
         else:
             plt.show()
 
     def save(self, filepath=None, name=None):
         if filepath is None or not os.path.exists(filepath):
-            filepath = "../models/unet"
+            filepath = "DCVnet/models/unet"
 
         torch.save(self._model.state_dict(), filepath+"/"+name)
         if self.verbose:
@@ -330,18 +343,24 @@ class VectorModel():
     SCALER = torch.cuda.amp.GradScaler()
 
     def __init__(self, model=DEFAULT, device=None, name=None, save_images=False, verbose=True):
+
         self.model = model
         self.name = name
         self.verbose = verbose
         self.device = device
         self.save_images = save_images
         self.multiple_gpu = bool()
+        self.num_gpu = int()
+        self.device_ids = []
 
         # Check for devices and set them
         if self.device is None:
             if torch.cuda.is_available():
                 self.device = torch.device("cuda")
-                self.multiple_gpu = gpu_check()
+                self.multiple_gpu, self.num_gpu = gpu_check()
+                for i in range(self.num_gpu):
+                    self.device_ids.append(i)
+
                 torch.cuda.empty_cache()
             else:
                 self.device = torch.device("cpu")
@@ -354,10 +373,8 @@ class VectorModel():
         if self.model == self.DEFAULT:
             self.model = DCVnet()
 
-        # Send the model to the current device
-        self.model.to(device=self.device)
-
     def train(self, dataset, val_dataset=None, epochs=None, learning_rate=0.005, optimizer=SGD, loss_fn=None, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=SCALER, name=None):
+
         DEVICE = self.device
 
         assert dataset is not None, "No dataset was received, make sure to input a dataset"
@@ -367,19 +384,26 @@ class VectorModel():
         if val_dataset is not None and not isinstance(val_dataset, DataLoader):
             val_dataset = DataLoader(val_dataset, shuffle=False)
 
-        # Check for multiple CUDA, if true, set to parallell processing
-        if self.multiple_gpu:
-            # Sending model to multiple GPUs
-            if self.verbose:
-                print("Multiple GPUs registered, initiating Distributed Data Parallel")
-            self.model = nn.parallel.DistributedDataParallel(self.model)
-
-        if self.verbose and self.device == torch.device("cpu"):
+        if self._device == torch.device('cpu'):
             print("")
-            # Check this
             warnings.warn('It looks like you\'re training your model on a CPU. '
                           'Consider switching to a GPU as this is not recommended.', RuntimeWarning)
             print("")
+        else:
+            # Check for multiple CUDA, if true, set to parallell processing
+            if self.multiple_gpu:
+                # Sending model to multiple GPUs
+                if self.verbose:
+                    print(
+                        "Multiple GPUs registered, initiating Distributed Data Parallel")
+                    #self.model = nn.parallel.DistributedDataParallel(self.model)
+                self.model = nn.DataParallel(
+                    self.model, device_ids=self.device_ids)
+                DEVICE = f"{DEVICE}"+':'+f"{self.model.device_ids[0]}"
+                self.model.to(device=DEVICE)
+            else:
+                # If not --> set model to device
+                self.model.to(device=DEVICE)
 
         # Optimzer
         parameters = [p for p in self.model.parameters() if p.requires_grad]
@@ -426,8 +450,7 @@ class VectorModel():
 
             for batch_idx, (element) in enumerate(iterable):
                 assert len(
-                    element) == 3, f"Data deprication! Expected {element} to have three elements, instead got {len(element)}  "
-
+                    element) == 3, f"Data deprication! Expected {element} to have three elements, instead got {len(element)}"
                 data = element[0].to(
                     device=DEVICE, dtype=torch.float32)
                 targets = element[1].to(
@@ -449,11 +472,11 @@ class VectorModel():
                     assert torch.is_tensor(
                         image), f"The image is not a torch tensor!"
                     # Convert one by one the vectorfield gt to Tensor and rearrange so that the channels come first, send to the right device
-                    gtVf = torch.tensor(gtVfList[index]).squeeze().permute(
+                    gtVf = torch.tensor(gtVfList[index]).permute(
                         2, 0, 1).to(device=DEVICE, dtype=torch.float32)
 
                     with torch.cuda.amp.autocast():
-                        predictions = self.model(image)
+                        predictions = self.model.forward(image)
                         loss = self.huberloss_fn(
                             predictions, gtVf) if loss_fn is None else loss_fn
 
@@ -466,11 +489,11 @@ class VectorModel():
 
                     running_loss += loss.item()
 
-                    if self.verbose and epoch % 20 == 0:
+                    if self.verbose and (batch_idx+1) % 50 == 0:
                         vectorfield.visualize_gt_vectorfield(
                             trainPoseData[0], trainPoseData[1], imgIndx=-1)
 
-                    if self.save_images and epoch % 20 == 0:
+                    if self.save_images and (batch_idx+1) % 25 == 0:
                         img_meta = f"Epoch_{epoch},b_indx_{batch_idx}"
                         vectorfield.visualize_gt_vectorfield(
                             trainPoseData[0], trainPoseData[1], imgIndx=-1, saveImages=True, img_meta=img_meta)
@@ -478,7 +501,7 @@ class VectorModel():
             train_losses.append(running_loss/index+1)
             print("")
             print(
-                f"Average Train Loss for {self.name} epoch {epoch +1}: {running_loss/index+1}")
+                f"Average Train Loss for {self.name} epoch {epoch +1}: {running_loss/(index+1)}")
             print("")
             if self.save_images and epoch % 10 == 0:
                 img_meta = f"Epoch_{epoch},b_indx_{index}"
@@ -530,17 +553,23 @@ class VectorModel():
                         img_meta = f"Epoch_{epoch},batch_indx_{index}"
                         visualize_vectorfield(
                             predictions, keypoints[index], saveImages=True, img_meta=img_meta)
-            val_losses.append(running_val_loss/index+1)
-            print("")
-            print(
-                f"Average Train Loss for {self.name} epoch {epoch +1}: {running_val_loss/index+1}")
-            print("")
+                val_losses.append(running_val_loss/index+1)
+                print("")
+                print(
+                    f"Average Train Loss for {self.name} epoch {epoch +1}: {running_val_loss/(index+1)}")
+                print("")
             # update lr
             lr_scheduler.step()
             if (epoch+1) % 10 == 0:
                 # plot the loss and validation
                 plot_loss(train_loss=train_losses,
                           val_loss=val_losses, epochs=epoch+1)
+        # Save model
+        if name is None:
+            name = self.model_name + f"_v.{random.randint(0,10)}"
+        else:
+            name = name
+        self.save(name=name)
 
         return val_losses
 
@@ -576,7 +605,7 @@ class VectorModel():
         else:
             name = name
         if filepath is None or not os.path.exists(filepath):
-            filepath = "../models/DVFnet"
+            filepath = "DCVnet/models/DVFnet"
 
         torch.save(self.model.state_dict(), filepath+"/"+name)
         if self.verbose:

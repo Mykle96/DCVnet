@@ -91,7 +91,6 @@ class SINTEFDataset(torch.utils.data.Dataset):
 
             image = image.transpose(2, 0, 1)
             mask = np.expand_dims(mask, axis=0)
-            print("MASK ", mask.shape)
             return image, mask, keypoints
 
         else:
