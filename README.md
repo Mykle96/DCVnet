@@ -37,13 +37,12 @@ After this process finishes installing you should have all the necessary package
 To train the network(s), the following code snippet shows the necessary commands and calls:
 
 ```python
-import torch
-from torch.utils.data import DataLoader
 
+from torch.utils.data import DataLoader
 # Local imports
 from engine import Model, VectorModel
 from dataLoader import SINTEFDataset
-from utils.utils import *
+
 
 # ----- MODELS -----
 # choose which model too use: True --> VectorModel, False --> Segmentation
