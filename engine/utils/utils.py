@@ -54,11 +54,11 @@ def dice_score(prediction: Tensor, target: Tensor, classes, threshold=0.5, epsil
 
     for i in range(prediction.shape[0]):  # Exluding the background (0)
         # Remove batch and channel dimentions, BATCH x 1 x H X W =>
-        pred = prediction[i].detach().flatten().cpu().numpy().astype(
-            int) if prediction[i].dim() > 3 else prediction[i].detach().cpu().numpy().astype(int)
+        pred = prediction[i].detach().flatten().cpu().numpy(
+        ) if prediction[i].dim() > 3 else prediction[i].detach().cpu().numpy()
 
         mask = target[i].detach().flatten().cpu().numpy(
-        ).astype(int) if target[i].dim() > 3 else target[i].detach().cpu().numpy().astype(int)
+        ) if target[i].dim() > 3 else target[i].detach().cpu().numpy()
         # visualize_croped_data(pred, mask)
         intersection = np.sum(mask * pred)
         union = np.sum(mask) + np.sum(pred)

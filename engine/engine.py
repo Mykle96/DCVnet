@@ -47,6 +47,7 @@ class Model:
         # If verbose is selected give more feedback of the process
         self.model_name = model
         self._device = device
+        self.name = name
         self.verbose = verbose
         self.save_images = save_images
         self.classes = classes
@@ -57,7 +58,7 @@ class Model:
 
         # Set name of model
         if self.name is None:
-            self.name = self.model
+            self.name = model
         else:
             self.name = name
 
@@ -191,13 +192,13 @@ class Model:
                 running_loss += loss.item()*predictions.shape[0]
 
             # The average loss of the epoch for segmentation
-            epoch_losses.append(running_loss/batch_idx+1)
-            train_loss.append(running_loss/batch_idx+1)
+            epoch_losses.append(running_loss/(batch_idx+1))
+            train_loss.append(running_loss/(batch_idx+1))
 
             if self.verbose:
                 print("")
                 print(
-                    f"Average Train Loss for {self.name} epoch {epoch +1}: {running_loss/batch_idx+1}")
+                    f"Average Train Loss for {self.name} epoch {epoch +1}: {running_loss/(batch_idx+1)}")
                 print("")
 
             if self.verbose and (epoch+1) % 10 == 0:
@@ -247,12 +248,12 @@ class Model:
                         running_val_loss += val_loss.item() * \
                             predictions.shape[0]
 
-                val_losses.append(running_val_loss/batch_idx+1)
+                val_losses.append(running_val_loss/(batch_idx+1))
                 print("")
                 print("AVERAGE VAL DICE: ",
                       np.sum(val_dice)/targets.shape[0])
                 print(
-                    f"Average Validation Loss for {self.name} epoch {epoch +1}: {running_val_loss/batch_idx+1}")
+                    f"Average Validation Loss for {self.name} epoch {epoch +1}: {running_val_loss/(batch_idx+1)}")
                 print("")
 
                 if (epoch+1) % 10 == 0:
@@ -317,6 +318,7 @@ class Model:
         pred = fig.add_subplot(2, 3, 2)
         pred.set_title("Prediction")
         pred.imshow(prediction)
+
         if save_images:
             path = 'DCVnet/results'
             plt.savefig(path + "/" + img_meta+".png")
