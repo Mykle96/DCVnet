@@ -38,9 +38,13 @@ if POSE:
 
     # ------ START TRAINING ------
     # vector
-    vectorNetwork = VectorModel(name="DVFnet_v.1")
-    vectorLosses = vectorNetwork.train(
-        dataset=POSE_TRAIN, val_dataset=POSE_VAL_DATA, epochs=EPOCHS)
+    #vectorNetwork = VectorModel()
+    # vectorLosses = vectorNetwork.train(
+    #    dataset=POSE_VAL_DATA, val_dataset=None, epochs=EPOCHS)
+
+    keypointNetwork = KeypointModel()
+    keypointLosses = keypointNetwork.train(
+        dataset=POSE_TRAIN, val_dataset=POSE_VAL, epochs=EPOCHS)
 
 else:
     # fetch and format the data

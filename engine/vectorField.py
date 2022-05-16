@@ -1,4 +1,5 @@
 import torch
+import torch.distributions as TD
 import math as m
 import numpy as np
 import matplotlib.pyplot as plt
@@ -6,6 +7,7 @@ import cython
 import colorsys
 from tqdm import tqdm
 import random
+from scipy.stats import multivariate_normal
 
 
 DEFAULT_CLASS = "container"
@@ -50,18 +52,18 @@ class VectorField:
         This serves as the ground truth for the network durning keypoint localization training.
 
         args:
-            target: ground truth mask list with length=batch size on the format [tensors,.., tensor], 
+            target: ground truth mask list with length=batch size on the format [tensors,.., tensor],
             tensor.shape = (1,1,dimY,dimX)
-            image: list of images with length=batch size on the format [tensors,.., tensor], 
+            image: list of images with length=batch size on the format [tensors,.., tensor],
             tensor.shape = (1,3,dimY,dimX)
             keypoints: Keypoint tensor with shape [batch size, number of keypoints, keypoint coordinates]
-            coordInfo: List of lists with cropping coordinates, length=batch size, 
+            coordInfo: List of lists with cropping coordinates, length=batch size,
             on the format: [[top_x, top_y, height, width]]
 
-        return: 
-            returns a tuple with a arrays of vecotr fields on the format: 
-                np.array(np.array([dimy,dimx,2*num keypoints]), np.array[,,]) 
-            and a tensor with the corresponding transformed keypoints in screen coordinates 
+        return:
+            returns a tuple with a arrays of vecotr fields on the format:
+                np.array(np.array([dimy,dimx,2*num keypoints]), np.array[,,])
+            and a tensor with the corresponding transformed keypoints in screen coordinates
             on the format [[x1,y1],..]
         """
 
@@ -85,7 +87,6 @@ class VectorField:
             # Generating a tensor with new keypoints to cropped screen, [x,y] format
             new_keypoints = torch.tensor(
                 self.update_keypoint(keypoints, coordInfo))
-
             vectorFieldList = []
 
             iterable = tqdm(numImages, position=0,
@@ -126,7 +127,7 @@ class VectorField:
 
         args:
             vectors: array of unit vectors to be updated [dimy, dimx, number of keypoints*2]
-            pixel: the current pixel [y,x] 
+            pixel: the current pixel [y,x]
             keypoints: the current keypoint [[x1,y1],[x2,y2]...]
             imgDimentions: the diemntions of the input image [y,x]
 
@@ -150,11 +151,11 @@ class VectorField:
         Function to visualize vector field towards a certain keypoint, and plotting all keypoint
 
         args:
-            field:  Arrays with len=batch_size, with vector fields on the format: 
+            field:  Arrays with len=batch_size, with vector fields on the format:
                 np.array(np.array([dimy,dimx,2*num keypoints]), np.array[,,])
             keypoint: Tensor with the format (batch size, number of keypoints, 2)
             indx: keypoint index, default is last keypoint
-            imgIndx: batch index of image, default is first image in batch 
+            imgIndx: batch index of image, default is first image in batch
 
         returns:
             No return
@@ -253,7 +254,7 @@ class VectorField:
     def update_keypoint(self, keypoints, coordsInfo):
         updated_keypoints = []
         '''
-        Keypoints type = np.ndarray with shape [[[x1,y1],..,[xn,yn]],...] 
+        Keypoints type = np.ndarray with shape [[[x1,y1],..,[xn,yn]],...]
         Converting screen coordinates for consistency, by dividing on width/height of cropped screen
         coordInfo: List of lists on the format: [[top_x, top_y, height, width],...,[..]]
 
@@ -276,6 +277,35 @@ class VectorField:
             updated_keypoints.append(loop)
 
         return updated_keypoints
+
+    def gaussian_heatmap(self, image, keypoints, coordsInfo, scale=None):
+
+        # Update the keypoints
+        new_keypoints = self.update_keypoint(keypoints, coordsInfo)
+        # Heatmap with one keypoint per image
+        heatmaps = []
+        gaussians = []
+        dimentions = [image.shape[2],
+                      image.shape[3]]
+        for index, keypoint in enumerate(new_keypoints[0]):
+            scale = np.eye(2)*scale if scale is not None else np.eye(2)
+            gauss = multivariate_normal(
+                mean=(keypoint[1]*dimentions[1], keypoint[0]*dimentions[0]), cov=scale)
+            gaussians.append(gauss)
+
+        # create a grid of (x,y) coordinates at which to evaluate the kernels
+        x = np.arange(0, dimentions[1])
+        y = np.arange(0, dimentions[0])
+        xx, yy = np.meshgrid(x, y)
+        xxyy = np.stack([xx.ravel(), yy.ravel()]).T
+        heatmap = sum(gauss.pdf(xxyy) for gauss in gaussians)
+        # Check if this is right, maybe we need to add each gaussian keypoint to a list of 9 elements
+        heatmap = np.repeat(heatmap.reshape(
+            dimentions[0], dimentions[1], 1), len(new_keypoints[0]), axis=2)
+        # Append heatmap and corresponding index
+        heatmaps.append(heatmap)
+
+        return np.array(heatmaps)
 
 
 def test():

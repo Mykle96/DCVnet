@@ -460,8 +460,8 @@ class VectorModel():
                     device=DEVICE, dtype=torch.float32)
                 targets = element[1].to(
                     device=DEVICE, dtype=torch.float32)
-                keypoints = element[2]
-
+                keypoints = element[2]to(
+                    device=DEVICE, dtype=torch.float32)
                 self.model.train()  # Set model to training mode
                 # crop incoming images on their masks
                 poseData = crop_pose_data(data, targets)
@@ -531,7 +531,7 @@ class VectorModel():
                             device=DEVICE, dtype=torch.float32)
                         targets = element[1].to(
                             device=DEVICE, dtype=torch.float32)
-
+                        keypoints = element[2]
                         poseData = crop_pose_data(data, targets)
                         vectorfield = VectorField(targets, data, keypoints)
                         trainPoseData = vectorfield.calculate_vector_field(
@@ -606,11 +606,307 @@ class VectorModel():
 
     def save(self, filepath=None, name=None):
         if name is None:
-            name = f"{name}" + f"_v.{random.randint(0,10)}"
+            name = f"_v.{random.randint(0,10)}"
         else:
             name = name
         if filepath is None or not os.path.exists(filepath):
             filepath = "DCVnet/models/DVFnet"
+
+        torch.save(self.model.state_dict(), filepath+"/"+name)
+        if self.verbose:
+            print("*"*50)
+            print("Pose Model has been saved!")
+            print("*"*50)
+
+    def show_prediction(self):
+        raise NotImplementedError
+
+
+# ----------------------------------------------------------------------------------------------
+#                                     KEYPOINT ESTIMATION MODEL
+# ----------------------------------------------------------------------------------------------
+
+
+class KeypointModel():
+    # Default values
+    DEFAULT = "DCVnet"
+    SGD = 'sgd'
+    SCALER = torch.cuda.amp.GradScaler()
+
+    def __init__(self, model=DEFAULT, device=None, name=None, save_images=False, verbose=True):
+
+        self.model = model
+        self.name = name
+        self.verbose = verbose
+        self.device = device
+        self.save_images = save_images
+        self.multiple_gpu = bool()
+        self.num_gpu = int()
+        self.device_ids = []
+
+        # Check for devices and set them
+        if self.device is None:
+            if torch.cuda.is_available():
+                self.device = torch.device("cuda")
+                self.multiple_gpu, self.num_gpu = gpu_check()
+                for i in range(self.num_gpu):
+                    self.device_ids.append(i)
+
+                torch.cuda.empty_cache()
+            else:
+                self.device = torch.device("cpu")
+        else:
+            self.device = device
+
+        if self.name is None:
+            self.name = self.model
+
+        if self.model == self.DEFAULT:
+            self.model = DCVnet()
+
+    def train(self, dataset, val_dataset=None, epochs=None, learning_rate=0.005, optimizer=SGD, loss_fn=None, momentum=0.9, weight_decay=0.0005, gamma=0.1, lr_step_size=3, scaler=SCALER):
+
+        DEVICE = self.device
+
+        assert dataset is not None, "No dataset was received, make sure to input a dataset"
+        if not isinstance(dataset, DataLoader):
+            dataset = DataLoader(dataset, shuffle=True)
+
+        if val_dataset is not None and not isinstance(val_dataset, DataLoader):
+            val_dataset = DataLoader(val_dataset, shuffle=False)
+
+        if self.device == torch.device('cpu'):
+            print("")
+            warnings.warn('It looks like you\'re training your model on a CPU. '
+                          'Consider switching to a GPU as this is not recommended.', RuntimeWarning)
+            print("")
+        else:
+            # Check for multiple CUDA, if true, set to parallell processing
+            if self.multiple_gpu:
+                # Sending model to multiple GPUs
+                if self.verbose:
+                    print(
+                        "Multiple GPUs registered, initiating Distributed Data Parallel")
+                    #self.model = nn.parallel.DistributedDataParallel(self.model)
+                self.model = nn.DataParallel(
+                    self.model, device_ids=self.device_ids)
+                DEVICE = f"{DEVICE}"+':'+f"{self.model.device_ids[0]}"
+                self.model.to(device=DEVICE)
+            else:
+                # If not --> set model to device
+                self.model.to(device=DEVICE)
+
+        # Optimzer
+        parameters = [p for p in self.model.parameters() if p.requires_grad]
+
+        if optimizer in ["adam", "Adam", "ADAM"]:
+            print("Optimizer: Adam")
+            optimizer = torch.optim.Adam(
+                parameters, lr=learning_rate, weight_decay=weight_decay)
+
+        elif optimizer in ["sgd", "SGD", "Sgd"]:
+            print("Optimizer: SGD")
+            optimizer = torch.optim.SGD(
+                parameters, lr=learning_rate, momentum=momentum, weight_decay=weight_decay)
+        else:
+            raise ValueError(
+                f"The optimizer chosen: {optimizer}, is either not added yet or invalid.. please use SGD or Adam")
+
+        # Add learning rate scheduler
+        lr_scheduler = torch.optim.lr_scheduler.StepLR(
+            optimizer, step_size=lr_step_size, gamma=gamma)
+        # Check for loss functions
+        if loss_fn is not None:
+            loss_fn = loss_fn
+
+        train_losses = []
+        val_losses = []
+
+        print(f" --- Starting traininig on model: {self.name} ---")
+        # ---------- STARTING TRAINING LOOP ------------
+        for epoch in tqdm(range(epochs)):
+
+            print(f'Epoch {epoch + 1} of {epochs}')
+            print("="*50)
+
+            if self.verbose:
+                print("Starting iteration over training dataset")
+                print("and calculating unit vector fields")
+                print("")
+
+            iterable = tqdm(dataset, position=0,
+                            leave=True) if self.verbose else dataset
+
+            running_loss = 0.0
+
+            for batch_idx, (element) in enumerate(iterable):
+                assert len(
+                    element) == 3, f"Data deprication! Expected {element} to have three elements, instead got {len(element)}"
+                data = element[0].to(
+                    device=DEVICE, dtype=torch.float32)
+                targets = element[1].to(
+                    device=DEVICE, dtype=torch.float32)
+                keypoints = element[2]
+
+                self.model.train()  # Set model to training mode
+
+                # crop incoming images on their masks
+                poseData = crop_pose_data(data, targets)
+                vectorfield = VectorField(targets, data, keypoints)
+
+                for index, image in enumerate(poseData[0]):
+                    assert torch.is_tensor(
+                        image), f"The image is not a torch tensor!"
+                    # calculate the ground truth keypoint gaussian point fields for one image
+                    heatmaps = vectorfield.gaussian_heatmap(
+                        image, keypoints, coordsInfo=poseData[1], scale=5)
+                    heatmaps = torch.tensor(heatmaps).permute(0, 3, 1, 2).to(
+                        device=DEVICE, dtype=torch.float32)
+                    with torch.cuda.amp.autocast():
+                        predictions = self.model.forward(image)
+                        loss = self.MSEloss_fn(
+                            predictions, heatmaps) if loss_fn is None else loss_fn
+
+                    # backward - calculating and updating the gradients of the network
+                    optimizer.zero_grad()
+                    # Compute gradients for each parameter based on the current loss calculation
+                    scaler.scale(loss).backward()
+                    scaler.step(optimizer)
+                    scaler.update()
+
+                    running_loss += loss.item()
+
+                    if self.save_images and (epoch+1) % 10 == 0:
+                        img_meta = f"{self.name}_Training_pred_Epoch_{epoch},b_indx_{batch_idx}"
+                        self.visualize_prediction(
+                            image, heatmaps, predictions, save_image=True, img_meta=img_meta)
+
+            train_losses.append(running_loss/(index+1))
+            print("")
+            print(
+                f"Average Train Loss for {self.name} epoch {epoch +1}: {running_loss/(index+1)}")
+            print("")
+            if self.save_images and epoch % 10 == 0:
+                img_meta = f"{self.name}_train_Epoch_{epoch},b_indx_{index}"
+                visualize_vectorfield(
+                    predictions, keypoints[index], saveImages=True, img_meta=img_meta)
+
+                # ---------- STARTING VALIDATION LOOP ------------
+            if val_dataset is not None:
+                running_val_loss = 0.0
+                self.model.eval()  # Set model to evaluation mode
+                with torch.no_grad():
+                    if self.verbose:
+                        print("="*50)
+                        print("Starting iteration over validation dataset")
+                        print("and calculating unit vector fields")
+                        print("")
+
+                    iterable = tqdm(dataset, position=0,
+                                    leave=True) if self.verbose else dataset
+                    for batch_idx, (element) in enumerate(iterable):
+                        data = element[0].to(
+                            device=DEVICE, dtype=torch.float32)
+                        targets = element[1].to(
+                            device=DEVICE, dtype=torch.float32)
+                        keypoints = element[2]
+
+                        # calculate the ground truth keypoint gaussian point fields
+                        # crop incoming images on their masks
+                        poseData = crop_pose_data(data, targets)
+                        vectorfield = VectorField(targets, data, keypoints)
+
+                        for index, image in enumerate(poseData[0]):
+                            assert torch.is_tensor(
+                                image), f"The image is not a torch tensor!"
+                            # calculate the ground truth keypoint gaussian point fields for one image
+                            heatmaps = vectorfield.gaussian_heatmap(
+                                image, keypoints, coordsInfo=poseData[1], scale=5)
+                            heatmaps = torch.tensor(heatmaps).permute(0, 3, 1, 2).to(
+                                device=DEVICE, dtype=torch.float32)
+                            predictions = self.model(image)
+                            loss = self.MSEloss_fn(
+                                predictions, heatmaps) if loss_fn is None else loss_fn
+
+                            running_val_loss += loss.item()
+
+                    if self.save_images and (epoch+1) % 10 == 0:
+                        img_meta = f"{self.name}_Validation_pred_Epoch_{epoch},b_indx_{batch_idx}"
+                        self.visualize_prediction(
+                            image, heatmaps, predictions, save_image=True, img_meta=img_meta)
+
+                val_losses.append(running_val_loss/(index+1))
+                print("")
+                print(
+                    f"Average Train Loss for {self.name} epoch {epoch +1}: {running_val_loss/(index+1)}")
+                print("")
+            # update lr
+            lr_scheduler.step()
+            if (epoch+1) % 10 == 0:
+                # plot the loss and validation
+                plot_loss(train_loss=train_losses,
+                          val_loss=val_losses, epochs=epoch+1, name=self.name)
+        # Save model
+        if self.name is None:
+            name = f"_v.{random.randint(0,10)}"
+        else:
+            name = self.name
+        self.save(name=name)
+
+        return val_losses
+
+    def MSEloss_fn(self, prediction=None, target=None, delta=0.5):
+        """
+        Calculates the Huber Loss between the inputs
+
+        args:
+            prediction: The predicted vector field
+            target: The ground truth vector field
+            delta: the huber delta (Default: 0.5)
+
+        return:
+                loss: a float
+        """
+        # Check if this is more stable
+        loss_fn = nn.MSELoss()
+        loss = loss_fn(prediction, target)
+        return loss
+
+    def visualize_prediction(self, image, heatmap, prediction, save_image=False, img_meta=""):
+        # Show prediction
+        image = image.detach().cpu().permute(0, 2, 3, 1).numpy()
+        image = image[-1]
+        heatmap = heatmap.detach().cpu().permute(0, 2, 3, 1).numpy().squeeze()
+        heatmap = heatmap[-1].squeeze()
+        # print(image.shape)
+        prediction = prediction.detach().float().cpu().permute(0, 2, 3, 1).numpy()
+        prediction = prediction[-1].squeeze()
+        # print(prediction.shape)
+        fig = plt.figure(figsize=(10, 10))
+        img = fig.add_subplot(2, 3, 1)
+        img.set_title("Image with gt heatmap")
+        img.imshow(image/255)
+        img.imshow(heatmap, alpha=0.5)
+
+        pred = fig.add_subplot(2, 3, 2)
+        pred.set_title("Prediction")
+        pred.imshow(prediction)
+
+        if save_images:
+            path = 'DCVnet/results'
+            plt.savefig(path + "/" + img_meta+".png")
+        else:
+            plt.show()
+
+        raise NotImplementedError
+
+    def save(self, filepath=None, name=None):
+        if name is None:
+            name = "_v.{random.randint(0,10)}"
+        else:
+            name = name
+        if filepath is None or not os.path.exists(filepath):
+            filepath = "../models/DVFnet"
 
         torch.save(self.model.state_dict(), filepath+"/"+name)
         if self.verbose:

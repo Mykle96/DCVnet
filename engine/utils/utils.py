@@ -427,7 +427,7 @@ def visualize_croped_data(crop_image, crop_mask):
     crop_mask_img.show()
 
 
-def crop_pose_data(image, mask, threshold=0.6):
+def crop_pose_data(image, mask, vectorfield=False, threshold=0.6):
     """
     Function for croping the training (and validation) images and masks. Crops the mask at a threshold to
     eliminate outliers.
@@ -443,9 +443,7 @@ def crop_pose_data(image, mask, threshold=0.6):
     """
     # initialize variables
     cropedImages = []
-    cropedMask = []
     coordInfo = []
-
     for i in range(len(image)):
         # Fetch coordinates of mask wiht a threshold
         coords = torch.where(mask[i] >= threshold)[1:3]
@@ -471,21 +469,25 @@ def crop_pose_data(image, mask, threshold=0.6):
         coordInfo.append(info)
 
         # Crop the image and mask on the given point and dimentions
-        crop, crop_mask = TVF.crop(
-            image[i], top_y, top_x, height, width), TVF.crop(
-            mask[i], top_y, top_x, height, width)
-
+        crop = TVF.crop(
+            image[i], top_y, top_x, height, width)
         # unsqueeze to add batch dimention and append the cropped images and masks
         cropedImages.append(torch.unsqueeze(
             crop, 0))
-        cropedMask.append(torch.unsqueeze(crop_mask, 0))
+
+        if vectorfield:
+            cropedMask = []
+            crop_mask = TVF.crop(mask[i], top_y, top_x, height, width)
+            cropedMask.append(torch.unsqueeze(crop_mask, 0))
 
     # Visualize the last image and mask
-    visualize_croped_data(crop, crop_mask)
+    #visualize_croped_data(crop, crop_mask)
 
     # List of lists
-    poseData = [cropedImages, cropedMask, coordInfo]
-
+    if vectorfield:
+        poseData = [cropedImages, cropedMask, coordInfo]
+    else:
+        poseData = [cropedImages, coordInfo]
     return poseData
 
 
