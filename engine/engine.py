@@ -803,7 +803,7 @@ class KeypointModel():
                         print("")
 
                     iterable = tqdm(dataset, position=0,
-                                    leave=True) if self.verbose else dataset
+                                    leave=True) if self.verbose else val_dataset
                     for batch_idx, (element) in enumerate(iterable):
                         data = element[0].to(
                             device=DEVICE, dtype=torch.float32)
