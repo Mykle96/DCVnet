@@ -97,10 +97,3 @@ else:
                             optimizer=OPTIMIZER)
 ```
 
-## Dataset
-
-## Model
-
-## Demo
-
-## Citation
